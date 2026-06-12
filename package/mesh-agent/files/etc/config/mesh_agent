@@ -1,0 +1,6 @@
+config agent 'main'
+	option enabled '1'
+	option ac_url 'http://192.168.50.1/cgi-bin/mesh-ac'
+	option pairing_token 'change-this-pairing-token'
+	option poll_interval '30'
+	option wired_preferred '1'

@@ -1,0 +1,34 @@
+include $(TOPDIR)/rules.mk
+
+PKG_NAME:=mesh-agent
+PKG_RELEASE:=1
+
+PKG_MAINTAINER:=ysuolmai
+PKG_LICENSE:=MIT
+
+include $(INCLUDE_DIR)/package.mk
+
+define Package/mesh-agent
+  SECTION:=net
+  CATEGORY:=Network
+  TITLE:=Mesh managed AP agent
+  DEPENDS:=+curl +jsonfilter +umdns +wpad-openssl +kmod-batman-adv +batctl-default +dawn
+endef
+
+define Package/mesh-agent/description
+  Managed AP agent for mesh-ac.
+endef
+
+define Package/mesh-agent/conffiles
+/etc/config/mesh_agent
+/etc/mesh-agent/config.json
+endef
+
+define Build/Compile
+endef
+
+define Package/mesh-agent/install
+	$(CP) ./files/. $(1)/
+endef
+
+$(eval $(call BuildPackage,mesh-agent))

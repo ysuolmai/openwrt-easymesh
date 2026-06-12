@@ -1,0 +1,37 @@
+# Target platform
+CONFIG_TARGET_qualcommax=y
+CONFIG_TARGET_qualcommax_ipq60xx=y
+CONFIG_TARGET_MULTI_PROFILE=y
+CONFIG_TARGET_PER_DEVICE_ROOTFS=y
+
+# Initial devices. Keep the matrix small until hardware testing.
+CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_redmi_ax5=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_redmi_ax5-jdcloud=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_jdcloud_re-ss-01=y
+CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_qihoo_360v6=y
+
+# Managed AP agent
+CONFIG_PACKAGE_mesh-agent=y
+
+# Full wpad for 802.11k/v/r and DAWN.
+CONFIG_PACKAGE_wpad-openssl=y
+CONFIG_PACKAGE_wpad-basic=n
+CONFIG_PACKAGE_wpad-basic-mbedtls=n
+CONFIG_PACKAGE_wpad-basic-openssl=n
+
+# Mesh backhaul and roaming
+CONFIG_PACKAGE_kmod-batman-adv=y
+CONFIG_PACKAGE_batctl-default=y
+CONFIG_PACKAGE_luci-proto-batman-adv=y
+CONFIG_PACKAGE_dawn=y
+CONFIG_PACKAGE_umdns=y
+
+# Diagnostics
+CONFIG_PACKAGE_hostapd-utils=y
+CONFIG_PACKAGE_wpa-cli=y
+CONFIG_PACKAGE_iwinfo=y
+CONFIG_PACKAGE_iw=y
+CONFIG_PACKAGE_tcpdump=y
+CONFIG_PACKAGE_iperf3=y
+CONFIG_PACKAGE_curl=y
+CONFIG_PACKAGE_jsonfilter=y

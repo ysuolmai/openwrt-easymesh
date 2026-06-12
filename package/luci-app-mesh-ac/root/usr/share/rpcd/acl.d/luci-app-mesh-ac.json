@@ -1,0 +1,19 @@
+{
+	"luci-app-mesh-ac": {
+		"description": "Grant access to Mesh AC configuration",
+		"read": {
+			"uci": [ "mesh_ac" ],
+			"file": {
+				"/etc/mesh-ac/nodes/*.json": [ "read" ],
+				"/usr/sbin/mesh-ac-list": [ "exec" ]
+			}
+		},
+		"write": {
+			"uci": [ "mesh_ac" ],
+			"file": {
+				"/usr/sbin/mesh-ac-approve": [ "exec" ],
+				"/etc/init.d/mesh-ac restart": [ "exec" ]
+			}
+		}
+	}
+}

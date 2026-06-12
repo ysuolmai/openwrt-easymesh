@@ -1,0 +1,12 @@
+#!/bin/sh /etc/rc.common
+
+START=70
+USE_PROCD=1
+
+start_service() {
+	mkdir -p /etc/mesh-ac /tmp/mesh-ac
+	[ -f /etc/mesh-ac/nodes.json ] || echo '{}' > /etc/mesh-ac/nodes.json
+	procd_open_instance
+	procd_set_param command /bin/sh -c 'sleep infinity'
+	procd_close_instance
+}

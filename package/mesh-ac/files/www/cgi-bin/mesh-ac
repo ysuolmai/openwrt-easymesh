@@ -1,0 +1,137 @@
+#!/bin/sh
+
+set -eu
+
+. /lib/functions.sh
+
+NODES=/etc/mesh-ac/nodes.json
+TMP=/tmp/mesh-ac
+
+mkdir -p "$TMP" /etc/mesh-ac
+[ -f "$NODES" ] || echo '{}' > "$NODES"
+
+header_json() {
+	printf 'Content-Type: application/json\r\n\r\n'
+}
+
+read_body() {
+	local len="${CONTENT_LENGTH:-0}"
+	[ "$len" -gt 0 ] || return 0
+	dd bs=1 count="$len" 2>/dev/null
+}
+
+json_get() {
+	local key="$1"
+	jsonfilter -s "$BODY" -e "@.$key" 2>/dev/null || true
+}
+
+uci_get() {
+	uci -q get "$1" 2>/dev/null || printf '%s' "$2"
+}
+
+require_token() {
+	local token="$1"
+	local expected
+
+	expected="$(uci_get mesh_ac.main.pairing_token '')"
+	[ -n "$expected" ] && [ "$token" = "$expected" ]
+}
+
+register_node() {
+	local id="$1"
+	local mac="$2"
+	local model="$3"
+	local ip="$4"
+	local now
+	local file
+
+	now="$(date +%s)"
+	file="$TMP/node-$id.json"
+	printf '{"id":"%s","mac":"%s","model":"%s","ip":"%s","approved":false,"last_seen":%s}\n' \
+		"$id" "$mac" "$model" "$ip" "$now" > "$file"
+	# Keep storage simple for v0.1: one JSON file per node plus a flat list.
+	mkdir -p /etc/mesh-ac/nodes
+	cp "$file" "/etc/mesh-ac/nodes/$id.json"
+}
+
+render_config() {
+	local approved_file="$1"
+	local approved
+
+	approved="$(jsonfilter -i "$approved_file" -e '@.approved' 2>/dev/null || echo false)"
+	[ "$approved" = "true" ] || {
+		printf '{"approved":false}\n'
+		return
+	}
+
+	cat <<EOF
+{
+  "approved": true,
+  "wifi": {
+    "ssid": "$(uci_get mesh_ac.main.ssid OpenWrt-Mesh)",
+    "key": "$(uci_get mesh_ac.main.key change-this-client-password)",
+    "country": "$(uci_get mesh_ac.main.country US)",
+    "encryption": "$(uci_get mesh_ac.main.encryption psk2+ccmp)",
+    "ieee80211k": "$(uci_get mesh_ac.main.ieee80211k 1)",
+    "ieee80211v": "$(uci_get mesh_ac.main.ieee80211v 1)",
+    "ieee80211r": "$(uci_get mesh_ac.main.ieee80211r 1)",
+    "mobility_domain": "$(uci_get mesh_ac.main.mobility_domain 4f57)",
+    "ft_over_ds": "$(uci_get mesh_ac.main.ft_over_ds 1)"
+  },
+  "backhaul": {
+    "mesh_id": "$(uci_get mesh_ac.main.mesh_id openwrt-ipq-backhaul)",
+    "mesh_key": "$(uci_get mesh_ac.main.mesh_key change-this-mesh-password)",
+    "band": "$(uci_get mesh_ac.main.band 5g)",
+    "channel_5g": "$(uci_get mesh_ac.main.channel_5g 149)",
+    "channel_2g": "$(uci_get mesh_ac.main.channel_2g 6)",
+    "htmode_5g": "$(uci_get mesh_ac.main.htmode_5g HE80)",
+    "htmode_2g": "$(uci_get mesh_ac.main.htmode_2g HE20)",
+    "wired_preferred": "$(uci_get mesh_ac.main.wired_preferred 1)"
+  },
+  "dawn": {
+    "enabled": "$(uci_get mesh_ac.main.dawn_enabled 1)",
+    "kicking": "$(uci_get mesh_ac.main.dawn_kicking 3)",
+    "set_hostapd_nr": "$(uci_get mesh_ac.main.dawn_set_hostapd_nr 1)"
+  }
+}
+EOF
+}
+
+PATH_INFO="${PATH_INFO:-/}"
+BODY="$(read_body || true)"
+
+case "$PATH_INFO" in
+	/register)
+		header_json
+		id="$(json_get id)"
+		mac="$(json_get mac)"
+		model="$(json_get model)"
+		token="$(json_get token)"
+		ip="${REMOTE_ADDR:-}"
+		if [ -z "$id" ] || ! require_token "$token"; then
+			printf '{"ok":false,"error":"unauthorized"}\n'
+			exit 0
+		fi
+		register_node "$id" "$mac" "$model" "$ip"
+		printf '{"ok":true,"approved":false}\n'
+		;;
+	/config)
+		header_json
+		id="$(json_get id)"
+		token="$(json_get token)"
+		if [ -z "$id" ] || ! require_token "$token"; then
+			printf '{"approved":false,"error":"unauthorized"}\n'
+			exit 0
+		fi
+		node="/etc/mesh-ac/nodes/$id.json"
+		[ -f "$node" ] || {
+			printf '{"approved":false,"error":"unknown-node"}\n'
+			exit 0
+		}
+		render_config "$node"
+		;;
+	*)
+		header_json
+		printf '{"ok":true,"service":"mesh-ac"}\n'
+		;;
+esac

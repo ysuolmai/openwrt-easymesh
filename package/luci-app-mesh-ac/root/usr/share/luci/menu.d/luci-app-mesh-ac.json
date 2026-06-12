@@ -1,0 +1,13 @@
+{
+	"admin/services/mesh-ac": {
+		"title": "Mesh AC",
+		"action": {
+			"type": "view",
+			"path": "mesh-ac/overview"
+		},
+		"depends": {
+			"acl": [ "luci-app-mesh-ac" ],
+			"uci": { "mesh_ac": true }
+		}
+	}
+}

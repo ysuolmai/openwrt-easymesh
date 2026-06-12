@@ -1,0 +1,6 @@
+#!/bin/sh
+
+/etc/init.d/umdns enable >/dev/null 2>&1 || true
+/etc/init.d/mesh-agent enable >/dev/null 2>&1 || true
+
+exit 0

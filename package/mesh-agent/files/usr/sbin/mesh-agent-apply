@@ -1,0 +1,182 @@
+#!/bin/sh
+
+set -eu
+
+cfg="${1:-/etc/mesh-agent/config.json}"
+[ -f "$cfg" ] || {
+	echo "missing config: $cfg" >&2
+	exit 1
+}
+
+jget() {
+	jsonfilter -i "$cfg" -e "$1" 2>/dev/null || printf '%s' "$2"
+}
+
+delete_wifi_iface_by_name() {
+	local name="$1"
+	local section
+
+	config_load wireless
+	config_foreach _delete_wifi_iface_by_name wifi-iface "$name"
+}
+
+_delete_wifi_iface_by_name() {
+	local section="$1"
+	local target="$2"
+	local name
+
+	config_get name "$section" name
+	[ "$name" = "$target" ] && uci -q delete "wireless.$section"
+}
+
+find_radio() {
+	local wanted="$1"
+
+	FOUND_RADIO=""
+	config_load wireless
+	config_foreach _find_radio wifi-device "$wanted"
+	printf '%s' "$FOUND_RADIO"
+}
+
+_find_radio() {
+	local section="$1"
+	local wanted="$2"
+	local band htmode
+
+	[ -n "$FOUND_RADIO" ] && return
+	config_get band "$section" band
+	config_get htmode "$section" htmode
+
+	case "$wanted:$band:$htmode" in
+		2g:2g:*|2g:*:HT*) FOUND_RADIO="$section" ;;
+		5g:5g:*|5g:*:VHT*|5g:*:HE*) FOUND_RADIO="$section" ;;
+	esac
+}
+
+set_radio_common() {
+	local radio="$1"
+	local country="$2"
+	local channel="$3"
+	local htmode="$4"
+
+	[ -n "$radio" ] || return
+	uci -q set "wireless.$radio.disabled=0"
+	uci -q set "wireless.$radio.country=$country"
+	uci -q set "wireless.$radio.channel=$channel"
+	uci -q set "wireless.$radio.htmode=$htmode"
+}
+
+. /lib/functions.sh
+
+wifi config >/dev/null 2>&1 || true
+
+ssid="$(jget '@.wifi.ssid' OpenWrt-Mesh)"
+key="$(jget '@.wifi.key' change-this-client-password)"
+country="$(jget '@.wifi.country' US)"
+encryption="$(jget '@.wifi.encryption' psk2+ccmp)"
+ieee80211k="$(jget '@.wifi.ieee80211k' 1)"
+ieee80211v="$(jget '@.wifi.ieee80211v' 1)"
+ieee80211r="$(jget '@.wifi.ieee80211r' 1)"
+mobility_domain="$(jget '@.wifi.mobility_domain' 4f57)"
+ft_over_ds="$(jget '@.wifi.ft_over_ds' 1)"
+
+mesh_id="$(jget '@.backhaul.mesh_id' openwrt-ipq-backhaul)"
+mesh_key="$(jget '@.backhaul.mesh_key' change-this-mesh-password)"
+band="$(jget '@.backhaul.band' 5g)"
+channel_5g="$(jget '@.backhaul.channel_5g' 149)"
+channel_2g="$(jget '@.backhaul.channel_2g' 6)"
+htmode_5g="$(jget '@.backhaul.htmode_5g' HE80)"
+htmode_2g="$(jget '@.backhaul.htmode_2g' HE20)"
+
+dawn_enabled="$(jget '@.dawn.enabled' 1)"
+dawn_kicking="$(jget '@.dawn.kicking' 3)"
+dawn_set_nr="$(jget '@.dawn.set_hostapd_nr' 1)"
+
+radio_2g="$(find_radio 2g)"
+radio_5g="$(find_radio 5g)"
+mesh_radio="$radio_5g"
+[ "$band" = "2g" ] && mesh_radio="$radio_2g"
+
+set_radio_common "$radio_2g" "$country" "$channel_2g" "$htmode_2g"
+set_radio_common "$radio_5g" "$country" "$channel_5g" "$htmode_5g"
+
+uci -q set network.bat0=interface
+uci -q set network.bat0.proto=batadv
+uci -q set network.bat0.routing_algo=BATMAN_V
+uci -q set network.bat0.bridge_loop_avoidance=1
+uci -q set network.bat0.distributed_arp_table=1
+
+uci -q set network.batmesh=interface
+uci -q set network.batmesh.proto=batadv_hardif
+uci -q set network.batmesh.master=bat0
+uci -q set network.batmesh.device='@mesh_backhaul'
+
+uci -q set network.lan=interface
+uci -q set network.lan.proto=dhcp
+uci -q set network.lan.device=br-lan
+
+uci -q set network.br_lan=device
+uci -q set network.br_lan.name=br-lan
+uci -q set network.br_lan.type=bridge
+uci -q add_list network.br_lan.ports=bat0
+
+delete_wifi_iface_by_name mesh_backhaul
+delete_wifi_iface_by_name mesh_ap_2g
+delete_wifi_iface_by_name mesh_ap_5g
+
+if [ -n "$mesh_radio" ]; then
+	uci -q add wireless wifi-iface
+	uci -q set wireless.@wifi-iface[-1].name=mesh_backhaul
+	uci -q set wireless.@wifi-iface[-1].device="$mesh_radio"
+	uci -q set wireless.@wifi-iface[-1].mode=mesh
+	uci -q set wireless.@wifi-iface[-1].network=batmesh
+	uci -q set wireless.@wifi-iface[-1].mesh_id="$mesh_id"
+	uci -q set wireless.@wifi-iface[-1].encryption=sae
+	uci -q set wireless.@wifi-iface[-1].key="$mesh_key"
+	uci -q set wireless.@wifi-iface[-1].mesh_fwding=0
+	uci -q set wireless.@wifi-iface[-1].disabled=0
+fi
+
+add_ap_iface() {
+	local radio="$1"
+	local name="$2"
+
+	[ -n "$radio" ] || return
+	uci -q add wireless wifi-iface
+	uci -q set wireless.@wifi-iface[-1].name="$name"
+	uci -q set wireless.@wifi-iface[-1].device="$radio"
+	uci -q set wireless.@wifi-iface[-1].mode=ap
+	uci -q set wireless.@wifi-iface[-1].network=lan
+	uci -q set wireless.@wifi-iface[-1].ssid="$ssid"
+	uci -q set wireless.@wifi-iface[-1].encryption="$encryption"
+	uci -q set wireless.@wifi-iface[-1].key="$key"
+	uci -q set wireless.@wifi-iface[-1].ieee80211k="$ieee80211k"
+	uci -q set wireless.@wifi-iface[-1].bss_transition="$ieee80211v"
+	uci -q set wireless.@wifi-iface[-1].wnm_sleep_mode="$ieee80211v"
+	uci -q set wireless.@wifi-iface[-1].time_advertisement="$ieee80211v"
+	uci -q set wireless.@wifi-iface[-1].ieee80211r="$ieee80211r"
+	uci -q set wireless.@wifi-iface[-1].mobility_domain="$mobility_domain"
+	uci -q set wireless.@wifi-iface[-1].ft_over_ds="$ft_over_ds"
+	uci -q set wireless.@wifi-iface[-1].ft_psk_generate_local=1
+	uci -q set wireless.@wifi-iface[-1].disabled=0
+}
+
+add_ap_iface "$radio_2g" mesh_ap_2g
+add_ap_iface "$radio_5g" mesh_ap_5g
+
+if [ "$dawn_enabled" = "1" ]; then
+	uci -q set dawn.@metric[0].kicking="$dawn_kicking"
+	uci -q set dawn.@metric[0].set_hostapd_nr="$dawn_set_nr"
+	/etc/init.d/umdns enable >/dev/null 2>&1 || true
+	/etc/init.d/dawn enable >/dev/null 2>&1 || true
+fi
+
+uci commit network
+uci commit wireless
+uci commit dawn || true
+
+wifi reload >/dev/null 2>&1 || wifi up >/dev/null 2>&1 || true
+/etc/init.d/network reload >/dev/null 2>&1 || true
+[ "$dawn_enabled" = "1" ] && /etc/init.d/dawn restart >/dev/null 2>&1 || true
+
+logger -t mesh-agent "applied managed AP config"

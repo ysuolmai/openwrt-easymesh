@@ -1,0 +1,8 @@
+#!/bin/sh
+
+mkdir -p /etc/mesh-ac/nodes
+for node in /etc/mesh-ac/nodes/*.json; do
+	[ -f "$node" ] || continue
+	cat "$node"
+	echo
+done
