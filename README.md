@@ -79,6 +79,7 @@ redmi_ax5
 redmi_ax5-jdcloud
 jdcloud_re-ss-01
 qihoo_360v6
+zn_m2
 ```
 
 ## 编译

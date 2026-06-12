@@ -23,7 +23,7 @@ cp -R "$ROOT_DIR/package/." "$OPENWRT_DIR/package/openwrt-ipq-mesh/"
 cat "$CONFIG_FILE" >> "$OPENWRT_DIR/.config"
 
 sed -i "/^CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_/{
-	/\\(redmi_ax5\\|redmi_ax5-jdcloud\\|jdcloud_re-ss-01\\|qihoo_360v6\\)=y$/!d
+	/\\(redmi_ax5\\|redmi_ax5-jdcloud\\|jdcloud_re-ss-01\\|qihoo_360v6\\|zn_m2\\)=y$/!d
 }" "$OPENWRT_DIR/.config"
 
 echo "prepared $CONFIG_NAME"

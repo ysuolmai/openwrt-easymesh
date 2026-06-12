@@ -13,14 +13,6 @@ on:
         default: master
         required: true
         type: string
-      config_name:
-        description: Build config
-        default: IPQ60XX-MESH-AC
-        required: true
-        type: choice
-        options:
-          - IPQ60XX-MESH-AC
-          - IPQ60XX-MESH-AP
       test_config_only:
         description: Generate .config only
         default: false
@@ -33,10 +25,16 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        config_name:
+          - IPQ60XX-MESH-AC
+          - IPQ60XX-MESH-AP
     env:
       SOURCE_REPO: ${{ inputs.source_repo }}
       SOURCE_BRANCH: ${{ inputs.source_branch }}
-      CONFIG_NAME: ${{ inputs.config_name }}
+      CONFIG_NAME: ${{ matrix.config_name }}
       TEST_CONFIG_ONLY: ${{ inputs.test_config_only }}
     steps:
       - name: Checkout project
