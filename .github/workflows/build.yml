@@ -10,7 +10,7 @@ on:
         type: string
       source_branch:
         description: Source branch
-        default: master
+        default: main
         required: true
         type: string
       test_config_only:

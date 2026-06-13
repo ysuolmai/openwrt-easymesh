@@ -167,7 +167,7 @@ Current behavior:
   - `IPQ60XX-MESH-AP`
 - Inputs:
   - `source_repo`
-  - `source_branch`
+  - `source_branch` (default `main`)
   - `test_config_only`
 - Default source repo is `https://github.com/VIKINGYFY/immortalwrt.git` because it contains `redmi_ax5`, `redmi_ax5-jdcloud`, and `zn_m2` profiles.
 - `config_name` manual selection was removed.
