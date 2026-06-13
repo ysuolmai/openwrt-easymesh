@@ -14,6 +14,14 @@ CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_zn_m2=y
 # Managed AP agent
 CONFIG_PACKAGE_mesh-agent=y
 
+
+# Qualcomm Wi-Fi driver and firmware. Device profiles add the matching ipq-wifi-* BDF package.
+CONFIG_PACKAGE_kmod-ath=y
+CONFIG_PACKAGE_kmod-ath11k=y
+CONFIG_PACKAGE_kmod-ath11k-ahb=y
+CONFIG_PACKAGE_kmod-ath11k-pci=y
+CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=y
+
 # Full wpad for 802.11k/v/r and DAWN.
 CONFIG_PACKAGE_wpad-openssl=y
 CONFIG_PACKAGE_wpad-basic=n

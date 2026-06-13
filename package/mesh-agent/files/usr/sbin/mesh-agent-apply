@@ -2,6 +2,12 @@
 
 set -eu
 
+preserve_lan=0
+if [ "${1:-}" = "--preserve-lan" ]; then
+	preserve_lan=1
+	shift
+fi
+
 cfg="${1:-/etc/mesh-agent/config.json}"
 [ -f "$cfg" ] || {
 	echo "missing config: $cfg" >&2
@@ -66,6 +72,34 @@ set_radio_common() {
 	uci -q set "wireless.$radio.htmode=$htmode"
 }
 
+find_bridge_section() {
+	local section="$1"
+	local name type
+
+	[ -n "$BRIDGE_SECTION" ] && return
+	config_get name "$section" name
+	config_get type "$section" type
+	[ "$name" = "br-lan" ] && [ "$type" = "bridge" ] && BRIDGE_SECTION="$section"
+}
+
+ensure_bat0_lan_port() {
+	local section
+
+	BRIDGE_SECTION=""
+	config_load network
+	config_foreach find_bridge_section device
+	section="${BRIDGE_SECTION:-br_lan}"
+
+	if [ -z "$BRIDGE_SECTION" ]; then
+		uci -q set network.br_lan=device
+		uci -q set network.br_lan.name=br-lan
+		uci -q set network.br_lan.type=bridge
+	fi
+
+	uci -q del_list "network.$section.ports=bat0" >/dev/null 2>&1 || true
+	uci -q add_list "network.$section.ports=bat0"
+}
+
 . /lib/functions.sh
 
 wifi config >/dev/null 2>&1 || true
@@ -111,14 +145,15 @@ uci -q set network.batmesh.proto=batadv_hardif
 uci -q set network.batmesh.master=bat0
 uci -q set network.batmesh.device='@mesh_backhaul'
 
-uci -q set network.lan=interface
-uci -q set network.lan.proto=dhcp
-uci -q set network.lan.device=br-lan
-
-uci -q set network.br_lan=device
-uci -q set network.br_lan.name=br-lan
-uci -q set network.br_lan.type=bridge
-uci -q add_list network.br_lan.ports=bat0
+if [ "$preserve_lan" != "1" ]; then
+	uci -q set network.lan=interface
+	uci -q set network.lan.proto=dhcp
+	uci -q set network.lan.device=br-lan
+	uci -q set network.br_lan=device
+	uci -q set network.br_lan.name=br-lan
+	uci -q set network.br_lan.type=bridge
+fi
+ensure_bat0_lan_port
 
 delete_wifi_iface_by_name mesh_backhaul
 delete_wifi_iface_by_name mesh_ap_2g
@@ -179,4 +214,8 @@ wifi reload >/dev/null 2>&1 || wifi up >/dev/null 2>&1 || true
 /etc/init.d/network reload >/dev/null 2>&1 || true
 [ "$dawn_enabled" = "1" ] && /etc/init.d/dawn restart >/dev/null 2>&1 || true
 
-logger -t mesh-agent "applied managed AP config"
+if [ "$preserve_lan" = "1" ]; then
+	logger -t mesh-agent "applied local AC mesh member config"
+else
+	logger -t mesh-agent "applied managed AP config"
+fi

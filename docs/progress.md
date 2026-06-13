@@ -3,7 +3,7 @@
 Last updated: 2026-06-13
 Repository: https://github.com/ysuolmai/openwrt-ipq-mesh
 Branch: `main`
-Latest pushed commit at handoff: `087a4e1 Build AC and AP targets together`
+Latest pushed commit before current work: `e4e4698 Add project handoff progress`
 
 ## Goal
 
@@ -38,6 +38,8 @@ Important design decision:
 - AC can be the DHCP/NAT gateway, but it does not have to be.
 - AP nodes should not default to DHCP/NAT/gateway behavior.
 - AP nodes are intended to work as dumb managed APs.
+- AC can also be a local mesh member when the AC hardware has Wi-Fi.
+- AC local mesh member mode must preserve AC LAN/WAN/DHCP/firewall settings.
 
 ## Implemented Packages
 
@@ -52,6 +54,7 @@ Provides:
 - `/www/cgi-bin/mesh-ac`
 - `/usr/sbin/mesh-ac-approve`
 - `/usr/sbin/mesh-ac-list`
+- `/usr/sbin/mesh-ac-apply-local`
 
 Current behavior:
 
@@ -61,6 +64,8 @@ Current behavior:
 - APs are unapproved by default.
 - `mesh-ac-approve <node-id>` marks AP as approved.
 - Approved APs can fetch rendered config through `/cgi-bin/mesh-ac/config`.
+- `mesh-ac-apply-local` renders local AC config to JSON and calls `mesh-agent-apply --preserve-lan`.
+- AC package depends on `mesh-agent` so the shared apply helper is present.
 
 Security status:
 
@@ -90,6 +95,8 @@ Current behavior:
   - 802.11s mesh backhaul
   - `batman-adv`
   - DAWN
+- Supports `--preserve-lan` for AC local mesh member mode.
+- The normal `mesh-agent` procd service is disabled on AC images when `/etc/config/mesh_ac` exists.
 
 Known limitation:
 
@@ -110,6 +117,8 @@ Current UI:
 
 - AC enable flag
 - pairing enable flag
+- AC local mesh member flag
+- local apply button
 - pairing token
 - client SSID/password
 - country
@@ -140,7 +149,7 @@ qihoo_360v6
 zn_m2
 ```
 
-`zn_m2` was added in commit `087a4e1`.
+`zn_m2` is supported through the VIKINGYFY/immortalwrt fork profile and `ipq-wifi-zn_m2` package.
 
 ## GitHub Actions
 
@@ -160,7 +169,9 @@ Current behavior:
   - `source_repo`
   - `source_branch`
   - `test_config_only`
+- Default source repo is `https://github.com/VIKINGYFY/immortalwrt.git` because it contains `redmi_ax5`, `redmi_ax5-jdcloud`, and `zn_m2` profiles.
 - `config_name` manual selection was removed.
+- After `make defconfig`, workflow runs `scripts/check-openwrt-config.sh` to verify required device profiles, Wi-Fi driver/firmware/BDF packages, KVR-capable `wpad-openssl`, DAWN, uMDNS, and `batman-adv` packages.
 
 Validation already done:
 
@@ -186,113 +197,41 @@ IPQ60XX-MESH-AP-f95f557-2
 
 Full firmware build has not yet been run after the latest changes.
 
-## Current User Request In Progress
+## Current User Request Implemented Locally
 
 User asked whether the AC itself can also be a mesh member if the AC hardware has Wi-Fi.
 
-Design answer: yes, but it needs a separate AC-local member mode.
+Implemented design:
 
-Reason:
+- `/etc/config/mesh_ac` has `option local_member '1'`.
+- LuCI has `Enable AC local mesh member` and `Apply local mesh config` controls.
+- `/usr/sbin/mesh-ac-apply-local` renders AC config into the same JSON structure used by managed APs.
+- It calls `/usr/sbin/mesh-agent-apply --preserve-lan /tmp/mesh-ac-local-config.json`.
+- `mesh-agent-apply --preserve-lan` applies Wi-Fi APs, 802.11s backhaul, `batman-adv`, and DAWN while preserving AC LAN/WAN/DHCP/firewall behavior.
+- Normal managed AP agent service is disabled on AC images so AC does not register to itself as a normal AP.
+- Local apply is explicit through LuCI or `/usr/sbin/mesh-ac-apply-local`; first boot does not broadcast placeholder Wi-Fi credentials automatically.
 
-- AC firmware already includes `mesh-agent`.
-- But normal AP agent behavior can change `network.lan` to DHCP and treat the node as a managed AP.
-- That is unsafe for an AC/main-router device because it may break AC LAN/WAN/DHCP/gateway configuration.
-
-Required design:
-
-- AC local member mode should apply Wi-Fi, 802.11s, `batman-adv`, and DAWN settings.
-- It must preserve AC LAN/WAN/DHCP/firewall settings.
-- It should not require AC to register to itself as a normal AP.
-
-Local WIP was started but not pushed at handoff.
-
-Local uncommitted changes currently are:
-
-1. Add option to `/etc/config/mesh_ac`:
+Important safety rule:
 
 ```text
-option local_member '1'
+AC local member mode must not rewrite network.lan.proto, network.lan.ipaddr, network.wan, firewall zones, or DHCP server settings.
 ```
 
-2. Add `--preserve-lan` flag to `mesh-agent-apply`:
-
-```sh
-mesh-agent-apply --preserve-lan /path/to/config.json
-```
-
-The WIP changes make `mesh-agent-apply` skip rewriting `network.lan` and `network.br_lan` when `--preserve-lan` is used.
-
-These WIP changes are incomplete. Do not assume the pushed remote has AC-local member mode implemented.
-
-## Next Steps For AC Local Mesh Member
-
-Suggested implementation plan:
-
-1. Keep `mesh-agent-apply --preserve-lan` or equivalent helper.
-2. Add an AC-side command, for example:
-
-```text
-/usr/sbin/mesh-ac-apply-local
-```
-
-3. This command should render AC config into the same JSON structure consumed by `mesh-agent-apply`.
-4. Then call:
-
-```sh
-/usr/sbin/mesh-agent-apply --preserve-lan /tmp/mesh-ac-local-config.json
-```
-
-5. Add LuCI control:
-
-```text
-Enable AC as local mesh member
-Apply local Wi-Fi/mesh config
-```
-
-6. Optional: run local apply automatically when `/etc/config/mesh_ac` changes.
-7. Make sure AC local member mode never changes:
-
-```text
-network.lan.proto
-network.lan.ipaddr
-network.wan
-firewall zones
-DHCP server settings
-```
-
-8. After implementing, run:
+Validation done locally:
 
 ```sh
 bash -n package/mesh-agent/files/usr/sbin/mesh-agent-apply
 bash -n package/mesh-ac/files/usr/sbin/mesh-ac-apply-local
-```
-
-9. Then trigger workflow:
-
-```sh
-gh workflow run build.yml -R ysuolmai/openwrt-ipq-mesh -f test_config_only=true
+bash -n package/mesh-agent/files/etc/init.d/mesh-agent
+bash -n package/mesh-agent/files/etc/uci-defaults/90-mesh-agent-enable
+bash -n package/mesh-ac/files/etc/uci-defaults/90-mesh-ac-enable
+bash -n scripts/check-openwrt-config.sh
+git diff --check
 ```
 
 ## Important Known Issues / TODO
 
-### 1. LuCI JS should be checked
-
-At one point the generated `overview.js` had a broken regex around node list parsing:
-
-```js
-split(/
-+/)
-```
-
-Verify the file currently contains a valid one-line regex and not a newline inside the regex literal.
-
-Path:
-
-```text
-package/luci-app-mesh-ac/htdocs/luci-static/resources/view/mesh-ac/overview.js
-```
-
-### 2. Wired-first / wireless-fallback is not fully implemented
+### 1. Wired-first / wireless-fallback is not fully implemented
 
 Current code prepares wireless mesh and `batman-adv`, but there is no mature watchdog yet.
 
@@ -303,7 +242,7 @@ Need a watchdog that:
 - falls back to 802.11s when wire is removed
 - avoids layer-2 loops
 
-### 3. AC discovery is not implemented
+### 2. AC discovery is not implemented
 
 Current AP agent default:
 
@@ -318,7 +257,7 @@ Need one of:
 - broadcast discovery
 - QR/token based onboarding
 
-### 4. Pairing security is primitive
+### 3. Pairing security is primitive
 
 Current shared token is only MVP-level.
 
@@ -329,11 +268,11 @@ Future:
 - certificate or signed token
 - reject unknown AP after pairing window closes
 
-### 5. Full firmware compile not verified
+### 4. Full firmware compile not verified
 
-Only `test_config_only=true` has been validated after matrix + zn_m2 support.
+Only `test_config_only=true` was validated before AC-local member and required-package checks.
 
-Next full build should be run manually because it consumes more GitHub Actions time.
+Next config-only workflow should be run after pushing current changes. Full build should be run manually because it consumes more GitHub Actions time.
 
 ## Useful Commands
 

@@ -1,6 +1,13 @@
 #!/bin/sh
 
 /etc/init.d/umdns enable >/dev/null 2>&1 || true
-/etc/init.d/mesh-agent enable >/dev/null 2>&1 || true
+
+if [ -f /etc/config/mesh_ac ]; then
+	uci -q set mesh_agent.main.enabled='0'
+	uci -q commit mesh_agent
+	/etc/init.d/mesh-agent disable >/dev/null 2>&1 || true
+else
+	/etc/init.d/mesh-agent enable >/dev/null 2>&1 || true
+fi
 
 exit 0

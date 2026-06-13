@@ -5,7 +5,7 @@ on:
     inputs:
       source_repo:
         description: OpenWrt/ImmortalWrt source repository
-        default: https://github.com/immortalwrt/immortalwrt.git
+        default: https://github.com/VIKINGYFY/immortalwrt.git
         required: true
         type: string
       source_branch:
@@ -72,6 +72,7 @@ jobs:
           cd openwrt
           OPENWRT_DIR="$PWD" "$GITHUB_WORKSPACE/scripts/prepare-openwrt.sh" "$CONFIG_NAME"
           make defconfig
+          "$GITHUB_WORKSPACE/scripts/check-openwrt-config.sh" "$CONFIG_NAME" .config
 
       - name: Build firmware
         if: env.TEST_CONFIG_ONLY != 'true'
