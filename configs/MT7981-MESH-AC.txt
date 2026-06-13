@@ -1,0 +1,47 @@
+# Target platform
+CONFIG_TARGET_mediatek=y
+CONFIG_TARGET_mediatek_filogic=y
+CONFIG_TARGET_MULTI_PROFILE=y
+CONFIG_TARGET_PER_DEVICE_ROOTFS=y
+
+# Upstream OpenWRT-CI diy.sh MTK whitelist.
+CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_sx_7981r128=y
+CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_nokia_ea0326gmp=y
+CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_cmcc_rax3000m=y
+
+# LuCI and AC
+CONFIG_PACKAGE_luci=y
+CONFIG_PACKAGE_luci-ssl=y
+CONFIG_LUCI_LANG_zh_Hans=y
+CONFIG_PACKAGE_mesh-ac=y
+CONFIG_PACKAGE_luci-app-mesh-ac=y
+
+# MediaTek Wi-Fi driver and firmware. Device profiles also select these.
+CONFIG_PACKAGE_kmod-mt7915e=y
+CONFIG_PACKAGE_kmod-mt7981-firmware=y
+CONFIG_PACKAGE_mt7981-wo-firmware=y
+
+# Full wpad for 802.11k/v/r and DAWN.
+CONFIG_PACKAGE_wpad-openssl=y
+CONFIG_PACKAGE_wpad-basic=n
+CONFIG_PACKAGE_wpad-basic-mbedtls=n
+CONFIG_PACKAGE_wpad-basic-openssl=n
+
+# Optional local AP/agent capability on AC node.
+CONFIG_PACKAGE_mesh-agent=y
+CONFIG_PACKAGE_kmod-batman-adv=y
+CONFIG_PACKAGE_batctl-default=y
+CONFIG_PACKAGE_luci-proto-batman-adv=y
+CONFIG_PACKAGE_dawn=y
+CONFIG_PACKAGE_luci-app-dawn=y
+CONFIG_PACKAGE_umdns=y
+
+# Diagnostics
+CONFIG_PACKAGE_hostapd-utils=y
+CONFIG_PACKAGE_wpa-cli=y
+CONFIG_PACKAGE_iwinfo=y
+CONFIG_PACKAGE_iw=y
+CONFIG_PACKAGE_tcpdump=y
+CONFIG_PACKAGE_iperf3=y
+CONFIG_PACKAGE_curl=y
+CONFIG_PACKAGE_jsonfilter=y

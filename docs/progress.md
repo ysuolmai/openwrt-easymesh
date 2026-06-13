@@ -1,13 +1,13 @@
-# OpenWrt IPQ Mesh AC Progress
+# OpenWrt Mesh AC Progress
 
 Last updated: 2026-06-13
 Repository: https://github.com/ysuolmai/openwrt-ipq-mesh
 Branch: `main`
-Latest pushed commit before current work: `e4e4698 Add project handoff progress`
+Latest pushed commit before MTK work: `ba7ea05 Fix config validation for device BDF packages`
 
 ## Goal
 
-Build an OpenWrt / ImmortalWrt based IPQ60XX mesh system using an AC + managed AP model similar to commercial AC/AP systems.
+Build an OpenWrt / ImmortalWrt based mesh system using an AC + managed AP model similar to commercial AC/AP systems. The initial platform was IPQ60XX; MT7981 support is being added through a separate workflow.
 
 Current product direction:
 
@@ -137,6 +137,8 @@ Current configs:
 ```text
 configs/IPQ60XX-MESH-AC.txt
 configs/IPQ60XX-MESH-AP.txt
+configs/MT7981-MESH-AC.txt
+configs/MT7981-MESH-AP.txt
 ```
 
 Current supported IPQ60XX device entries:
@@ -151,27 +153,41 @@ zn_m2
 
 `zn_m2` is supported through the VIKINGYFY/immortalwrt fork profile and `ipq-wifi-zn_m2` package.
 
+Current MT7981 device whitelist follows upstream `OpenWRT-CI/Scripts/diy.sh`:
+
+```text
+sx_7981r128
+nokia_ea0326gmp
+cmcc_rax3000m
+```
+
+`nokia_ea0326gmp` and `cmcc_rax3000m` are source profiles in `VIKINGYFY/immortalwrt` `owrt`. `sx_7981r128` is injected during `scripts/prepare-openwrt.sh`, using the upstream DTS/profile mechanism from OpenWRT-CI.
+
 ## GitHub Actions
 
-Workflow:
+Workflows:
 
 ```text
 .github/workflows/build.yml
+.github/workflows/build-mtk.yml
 ```
 
 Current behavior:
 
 - Manual `workflow_dispatch` only.
-- One trigger runs both AC and AP builds using matrix:
+- `Build IPQ Mesh` runs both IPQ AC and AP builds using matrix:
   - `IPQ60XX-MESH-AC`
   - `IPQ60XX-MESH-AP`
+- `Build MTK Mesh` runs both MT7981 AC and AP builds using matrix:
+  - `MT7981-MESH-AC`
+  - `MT7981-MESH-AP`
 - Inputs:
   - `source_repo`
-  - `source_branch` (default `main`)
+  - `source_branch` (`main` for IPQ, `owrt` for MTK)
   - `test_config_only`
-- Default source repo is `https://github.com/VIKINGYFY/immortalwrt.git` because it contains `redmi_ax5`, `redmi_ax5-jdcloud`, and `zn_m2` profiles.
+- Default source repo is `https://github.com/VIKINGYFY/immortalwrt.git`.
 - `config_name` manual selection was removed.
-- After `make defconfig`, workflow runs `scripts/check-openwrt-config.sh` to verify required device profiles, Wi-Fi driver/firmware symbols, source-side BDF packages, KVR-capable `wpad-openssl`, DAWN, uMDNS, and `batman-adv` packages.
+- After `make defconfig`, workflow runs `scripts/check-openwrt-config.sh` to verify required device profiles, Wi-Fi driver/firmware symbols, source-side support files, KVR-capable `wpad-openssl`, DAWN, uMDNS, and `batman-adv` packages.
 
 Validation already done:
 
@@ -182,22 +198,19 @@ Validation already done:
 Recent successful config-only releases:
 
 ```text
-IPQ60XX-MESH-AC-f95f557-5
-IPQ60XX-MESH-AP-f95f557-5
+IPQ60XX-MESH-AC-ea53cef-9
+IPQ60XX-MESH-AP-ea53cef-9
 ```
 
-Older successful config-only releases also exist:
+Recent successful config-only workflow run:
 
 ```text
-IPQ60XX-MESH-AC-f95f557-4
-IPQ60XX-MESH-AP-f95f557-4
-IPQ60XX-MESH-AC-f95f557-1
-IPQ60XX-MESH-AP-f95f557-2
+https://github.com/ysuolmai/openwrt-ipq-mesh/actions/runs/27468404699
 ```
 
 Full firmware build has not yet been run after the latest changes.
 
-## Current User Request Implemented Locally
+## Recently Implemented: AC Local Member
 
 User asked whether the AC itself can also be a mesh member if the AC hardware has Wi-Fi.
 
@@ -227,6 +240,23 @@ bash -n package/mesh-agent/files/etc/uci-defaults/90-mesh-agent-enable
 bash -n package/mesh-ac/files/etc/uci-defaults/90-mesh-ac-enable
 bash -n scripts/check-openwrt-config.sh
 git diff --check
+```
+
+## Current MTK Work
+
+Implemented locally for MT7981 support:
+
+- Added `configs/MT7981-MESH-AC.txt` and `configs/MT7981-MESH-AP.txt`.
+- Added `.github/workflows/build-mtk.yml` with default source branch `owrt`, matching upstream `MTK-ALL.yml`.
+- Added MTK whitelist filtering in `scripts/prepare-openwrt.sh`: `sx_7981r128`, `nokia_ea0326gmp`, `cmcc_rax3000m`.
+- Added `target/mediatek/dts/mt7981b-sx-7981r128.dts`.
+- Added SX 7981R128 injection into `target/linux/mediatek/image/filogic.mk`, `board.d/02_network`, and a first-boot uci-defaults script.
+- Updated `scripts/check-openwrt-config.sh` with separate IPQ and MTK validation paths.
+
+Validation still needed after push:
+
+```sh
+gh workflow run build-mtk.yml -R ysuolmai/openwrt-ipq-mesh -f test_config_only=true
 ```
 
 ## Important Known Issues / TODO
@@ -272,7 +302,7 @@ Future:
 
 Only `test_config_only=true` was validated before AC-local member and required-package checks.
 
-Next config-only workflow should be run after pushing current changes. Full build should be run manually because it consumes more GitHub Actions time.
+Next config-only workflow should be run after pushing current changes, including both IPQ and MTK if possible. Full build should be run manually because it consumes more GitHub Actions time.
 
 ## Useful Commands
 
@@ -287,6 +317,7 @@ Run config-only workflow:
 
 ```sh
 gh workflow run build.yml -R ysuolmai/openwrt-ipq-mesh -f test_config_only=true
+gh workflow run build-mtk.yml -R ysuolmai/openwrt-ipq-mesh -f test_config_only=true
 ```
 
 Watch a run:
@@ -303,14 +334,4 @@ gh release list -R ysuolmai/openwrt-ipq-mesh --limit 8
 
 ## Handoff Notes
 
-Remote `main` currently contains stable scaffold and validated matrix config workflow.
-
-Local workspace at handoff has WIP changes for AC-local member support that are intentionally not pushed unless the next agent chooses to complete and validate them.
-
-If continuing from GitHub only, start from commit:
-
-```text
-087a4e1 Build AC and AP targets together
-```
-
-Then implement AC local mesh member mode following the section above.
+Remote `main` contains the stable AC/AP scaffold, AC-local member support, IPQ config validation, and after this work should contain MT7981 workflow/config support. MTK full firmware builds still need real CI and hardware validation.

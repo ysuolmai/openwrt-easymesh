@@ -1,6 +1,6 @@
-# OpenWrt IPQ Mesh AC
+# OpenWrt Mesh AC
 
-一个基于 OpenWrt / ImmortalWrt 的 IPQ60XX Mesh AC + AP 管理项目。
+一个基于 OpenWrt / ImmortalWrt 的 Mesh AC + AP 管理项目，当前支持 IPQ60XX 和 MT7981。
 
 当前目标不是一次性做完整商用 Mesh 系统，而是先做一个可编译、可配对、可下发配置的 MVP：
 
@@ -72,14 +72,16 @@ Services -> Mesh AC
 
 ## 固件目标
 
-当前 workflow 提供两个目标：
+当前提供两组平台目标。
+
+IPQ60XX：
 
 ```text
 IPQ60XX-MESH-AC
 IPQ60XX-MESH-AP
 ```
 
-初始设备矩阵保持较小，方便先验证：
+设备白名单：
 
 ```text
 redmi_ax5
@@ -89,37 +91,61 @@ qihoo_360v6
 zn_m2
 ```
 
+MT7981：
+
+```text
+MT7981-MESH-AC
+MT7981-MESH-AP
+```
+
+MTK 设备白名单跟随上游 `OpenWRT-CI/Scripts/diy.sh`：
+
+```text
+sx_7981r128
+nokia_ea0326gmp
+cmcc_rax3000m
+```
+
+其中 `sx_7981r128` 不是 `VIKINGYFY/immortalwrt` 源码自带 profile，本项目会在准备配置阶段按上游机制注入 DTS、`filogic.mk` 设备条目、基础网络和首次启动配置。
+
 ## 编译
 
 仓库使用 GitHub Actions 手动编译，避免占用过多 cache。
 
-workflow 默认源码是：
+默认源码是：
 
 ```text
 https://github.com/VIKINGYFY/immortalwrt.git
 ```
 
-原因是该 fork 包含 `redmi_ax5`、`redmi_ax5-jdcloud`、`zn_m2` 等扩展 IPQ60XX 设备 profile 和对应 `ipq-wifi-*` BDF 包。官方 ImmortalWrt/OpenWrt 可通过 workflow 输入手动指定，但这些扩展设备可能不会完整生成镜像。
+IPQ workflow 默认分支是 `main`，因为该 fork 包含 `redmi_ax5`、`redmi_ax5-jdcloud`、`zn_m2` 等扩展 IPQ60XX 设备 profile 和对应 `ipq-wifi-*` BDF 包。
+
+MTK workflow 单独放在 `.github/workflows/build-mtk.yml`，默认分支是 `owrt`，跟随上游 `MTK-ALL.yml`。
 
 `make defconfig` 后 workflow 会运行 `scripts/check-openwrt-config.sh`，主动检查以下关键内容：
 
 - 目标设备 profile 是否存在
-- `kmod-ath11k-ahb` / `kmod-ath11k-pci`
-- IPQ6018 `ath11k` firmware
-- 源码设备 profile 中各设备对应的 `ipq-wifi-*` BDF 包
+- IPQ：`kmod-ath11k-ahb` / `kmod-ath11k-pci`、IPQ6018 firmware、各设备 `ipq-wifi-*` BDF 包
+- MTK：`kmod-mt7915e`、`kmod-mt7981-firmware`、`mt7981-wo-firmware`
 - `wpad-openssl`
 - `batman-adv` / `batctl`
 - DAWN / uMDNS
 - LuCI AC 应用和自研 `mesh-ac` / `mesh-agent`
 
-操作方式：
+IPQ 编译：
 
 1. 打开 GitHub 仓库的 `Actions`
 2. 选择 `Build IPQ Mesh`
 3. 点击 `Run workflow`
-4. workflow 会同时构建：
-   - `IPQ60XX-MESH-AC`
-   - `IPQ60XX-MESH-AP`
+4. workflow 会同时构建 `IPQ60XX-MESH-AC` 和 `IPQ60XX-MESH-AP`
+5. 如只想验证配置，勾选 `test_config_only`
+
+MTK 编译：
+
+1. 打开 GitHub 仓库的 `Actions`
+2. 选择 `Build MTK Mesh`
+3. 点击 `Run workflow`
+4. workflow 会同时构建 `MT7981-MESH-AC` 和 `MT7981-MESH-AP`
 5. 如只想验证配置，勾选 `test_config_only`
 
 workflow 会发布：
@@ -132,10 +158,11 @@ workflow 会发布：
 
 ### 1. 刷 AC 固件
 
-选择一台设备刷入：
+选择一台设备刷入对应平台的 AC 固件：
 
 ```text
 IPQ60XX-MESH-AC
+MT7981-MESH-AC
 ```
 
 进入 LuCI 后打开：
@@ -160,10 +187,11 @@ Country
 
 ### 2. 刷 AP 固件
 
-其他节点刷入：
+其他节点刷入对应平台的 AP 固件：
 
 ```text
 IPQ60XX-MESH-AP
+MT7981-MESH-AP
 ```
 
 AP 默认会访问：
@@ -212,7 +240,7 @@ v0.1 还是脚手架，重点是先把 AC/AP 架构跑通：
 - 有线优先 / 无线兜底的 watchdog 还未完成
 - LuCI 页面目前只做基础配置、批准 AP、AC 本机 Mesh 应用
 - 还没有拓扑图、链路质量、在线状态详情
-- 需要真机验证 IPQ60XX 上的 802.11s、DAWN 和 KVR 组合
+- 需要真机验证 IPQ60XX / MT7981 上的 802.11s、DAWN 和 KVR 组合
 
 ## 目录
 
@@ -231,7 +259,8 @@ docs/                    设计说明
 当前仓库是第一版 MVP。下一步优先事项：
 
 1. 跑完整 AC/AP 固件编译
-2. 两台 IPQ60XX 真机做有线配对测试
-3. 验证 AC 本地 Mesh 成员模式
-4. 验证拔线后的无线回程
-5. 加入 wired-first / wireless-fallback watchdog
+2. 跑 MT7981 config-only workflow 并做真机验证
+3. 两台 IPQ60XX 真机做有线配对测试
+4. 验证 AC 本地 Mesh 成员模式
+5. 验证拔线后的无线回程
+6. 加入 wired-first / wireless-fallback watchdog
