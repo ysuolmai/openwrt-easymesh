@@ -154,6 +154,23 @@ workflow 会发布：
 - 固件产物
 - manifest / buildinfo / sha256sums
 
+## 清理
+
+仓库提供独立的 `Clean Artifacts` workflow，用于释放 GitHub Actions 和 release 空间：
+
+- 删除所有已完成的 workflow run
+- 删除所有 `Test config only: true` 的 release 和对应 tag
+- 正式固件 release 按每个配置目标只保留最新一版，默认每个目标保留 1 个
+
+操作方式：
+
+1. 打开 GitHub 仓库的 `Actions`
+2. 选择 `Clean Artifacts`
+3. 点击 `Run workflow`
+4. 如只想预览，启用 `dry_run`
+
+正式固件保留策略按配置目标分组，例如 `IPQ60XX-MESH-AC`、`IPQ60XX-MESH-AP`、`MT7981-MESH-AC`、`MT7981-MESH-AP` 会分别保留最新一版。
+
 ## 首次使用
 
 ### 1. 刷 AC 固件

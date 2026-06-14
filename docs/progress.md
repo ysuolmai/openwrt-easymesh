@@ -170,6 +170,7 @@ Workflows:
 ```text
 .github/workflows/build.yml
 .github/workflows/build-mtk.yml
+.github/workflows/clean.yml
 ```
 
 Current behavior:
@@ -188,6 +189,7 @@ Current behavior:
 - Default source repo is `https://github.com/VIKINGYFY/immortalwrt.git`.
 - `config_name` manual selection was removed.
 - After `make defconfig`, workflow runs `scripts/check-openwrt-config.sh` to verify required device profiles, Wi-Fi driver/firmware symbols, source-side support files, KVR-capable `wpad-openssl`, DAWN, uMDNS, and `batman-adv` packages.
+- `Clean Artifacts` deletes completed workflow runs, deletes config-only releases, and keeps only the latest full firmware release per config target.
 
 Validation already done:
 

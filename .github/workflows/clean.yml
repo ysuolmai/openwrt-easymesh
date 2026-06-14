@@ -1,0 +1,35 @@
+name: Clean Artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Preview cleanup without deleting
+        default: false
+        required: true
+        type: boolean
+      keep_firmware_per_config:
+        description: Full firmware releases to keep per config target
+        default: 1
+        required: true
+        type: number
+
+permissions:
+  actions: write
+  contents: write
+
+jobs:
+  clean:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+
+      - name: Clean workflow runs and releases
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          CLEAN_DRY_RUN: ${{ inputs.dry_run }}
+          KEEP_FIRMWARE_PER_CONFIG: ${{ inputs.keep_firmware_per_config }}
+        run: |
+          python3 scripts/clean-github-artifacts.py
