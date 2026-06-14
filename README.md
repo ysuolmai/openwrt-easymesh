@@ -211,13 +211,15 @@ IPQ60XX-MESH-AP
 MT7981-MESH-AP
 ```
 
-AP 默认会访问：
+AP 默认通过 mDNS 自动发现 AC,无需手动配置地址。发现顺序:
 
-```text
-http://192.168.50.1/cgi-bin/mesh-ac
-```
+1. 显式配置的 `ac_url`(若可达)
+2. AC 通过 umdns 广播的 `_mesh-ac._tcp` 服务
+3. 默认网关(AC 兼作主路由时)
+4. 上次成功连接的缓存地址
+5. 兜底地址 `http://192.168.50.1/cgi-bin/mesh-ac`
 
-如果 AC 不是这个地址，需要在 AP 上修改：
+如果要把 AP 固定到某台 AC,可手动指定:
 
 ```sh
 uci set mesh_agent.main.ac_url='http://AC_IP/cgi-bin/mesh-ac'
@@ -225,6 +227,8 @@ uci set mesh_agent.main.pairing_token='你的配对 token'
 uci commit mesh_agent
 /etc/init.d/mesh-agent restart
 ```
+
+只想用静态地址、关闭自动发现,可设 `uci set mesh_agent.main.ac_discovery='static'`。
 
 ### 3. 有线配对
 
@@ -246,15 +250,15 @@ AP 配对成功后，可以拔掉网线。
 
 AP 会保留无线 802.11s 回程配置，后续可通过无线回到 Mesh 网络。
 
-再次插入网线时，设计目标是优先使用有线回程。当前 v0.1 已生成基础配置，后续会加入 watchdog 明确执行链路切换策略。
+当前有线和无线回程同时挂在 batman-adv 上，二层环路由 batman-adv 的 bridge loop avoidance(BLA)处理，active 路径由 BLA 选择。显式"有线优先"还没做：早期试过用 watchdog 在有线在线时把无线从 batman 摘掉，但会导致下游无线 AP 重启后无法重新入网的死锁(典型商用 mesh 通病)，已移除。正路是把有线口也做成 batman hardif 并给无线设 `hop_penalty`，让 batman 原生偏好有线，列为后续工作。
 
 ## 当前限制
 
 v0.1 还是脚手架，重点是先把 AC/AP 架构跑通：
 
 - 配对安全目前是共享 token，后续应改成配对窗口和每 AP 独立凭据
-- AC 自动发现还未完成，AP 默认使用固定 `ac_url`
-- 有线优先 / 无线兜底的 watchdog 还未完成
+- AC 自动发现已用 mDNS 实现，AP 也可手动固定 `ac_url`
+- 有线和无线回程同时挂 batman-adv，环路靠 BLA；显式"有线优先"待后续用 batman hardif + hop_penalty 实现
 - LuCI 页面目前只做基础配置、批准 AP、AC 本机 Mesh 应用
 - 还没有拓扑图、链路质量、在线状态详情
 - 需要真机验证 IPQ60XX / MT7981 上的 802.11s、DAWN 和 KVR 组合

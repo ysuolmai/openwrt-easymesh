@@ -4,4 +4,8 @@
 /etc/init.d/uhttpd enable >/dev/null 2>&1 || true
 /etc/init.d/uhttpd restart >/dev/null 2>&1 || true
 
+# Advertise the AC over mDNS so AP agents can discover it without a hardcoded URL.
+/etc/init.d/umdns enable >/dev/null 2>&1 || true
+/etc/init.d/umdns restart >/dev/null 2>&1 || true
+
 exit 0

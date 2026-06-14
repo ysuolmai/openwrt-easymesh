@@ -100,8 +100,8 @@ Current behavior:
 
 Known limitation:
 
-- AC auto-discovery is not implemented yet.
-- AP needs `mesh_agent.main.ac_url` changed manually if AC is not `192.168.50.1`.
+- AC auto-discovery now uses mDNS with gateway/default fallback (see "AC discovery" below).
+- AP can still pin a specific AC by setting `mesh_agent.main.ac_url`.
 
 ### `luci-app-mesh-ac`
 
@@ -263,30 +263,52 @@ gh workflow run build-mtk.yml -R ysuolmai/openwrt-ipq-mesh -f test_config_only=t
 
 ## Important Known Issues / TODO
 
-### 1. Wired-first / wireless-fallback is not fully implemented
+### 1. Wired-first / wireless-fallback (deferred — needs hardif redesign)
 
-Current code prepares wireless mesh and `batman-adv`, but there is no mature watchdog yet.
+Current state: both backhauls coexist. The wireless 802.11s link is a
+batman-adv hardif (`batmesh` -> `bat0`), `bat0` is bridged into `br-lan`, and
+the Ethernet backhaul port is also a `br-lan` member. Loops are handled by
+batman-adv `bridge_loop_avoidance` (`bat0.bridge_loop_avoidance=1`). There is no
+explicit wired preference yet — the active path is whatever BLA elects.
 
-Need a watchdog that:
+A previous attempt added a watchdog that detached the wireless mesh from
+batman-adv (`batctl if del`) whenever a wire was up and no mesh peer was
+present. It was removed because it is both harmful and pointless:
 
-- checks Ethernet carrier / default route / AC reachability
-- prefers wired backhaul when available
-- falls back to 802.11s when wire is removed
-- avoids layer-2 loops
+- A wired AP whose downstream wireless AP goes offline drops its mesh peer
+  count to zero and detaches its wireless backhaul. When the downstream AP
+  returns it cannot re-peer (the detached mesh netdev stops beaconing on many
+  drivers), and the wired AP only re-attaches after it sees the peer — a
+  deadlock. This is the classic commercial-mesh "B can't rejoin after a
+  reboot" failure.
+- The only case where it actually detaches (one wired AP, zero mesh peers) is
+  precisely the case with no loop to avoid. In the real loop case (two wired
+  APs that also mesh wirelessly) it sees a peer and does nothing.
 
-### 2. AC discovery is not implemented
+Correct fix (future, must be validated on hardware): make the Ethernet
+backhaul a batman-adv hardif too (instead of bridging eth directly into
+br-lan), and bias batman toward wired with `hop_penalty` on the wireless
+hardif. Then batman natively prefers wired, and node leave/rejoin is handled by
+batman without any external watchdog or deadlock.
 
-Current AP agent default:
+### 2. AC discovery via mDNS (implemented)
 
-```text
-http://192.168.50.1/cgi-bin/mesh-ac
-```
+AP agents resolve the AC through `ac_discovery` mode (`auto` by default):
 
-Need one of:
+1. explicit `mesh_agent.main.ac_url` if set and reachable
+2. mDNS service `_mesh-ac._tcp` advertised by the AC (umdns)
+3. default-gateway probe (AC acting as router)
+4. last known good URL (cached at `/etc/mesh-agent/ac_url`)
+5. hardcoded `192.168.50.1` as final fallback
 
-- uMDNS service discovery
-- DHCP option
-- broadcast discovery
+Each candidate is validated by probing the AC root endpoint for
+`{"service":"mesh-ac"}` before use, and the resolved AC is reused until it
+becomes unreachable. AC side advertises through `/etc/umdns/mesh-ac.json` and
+enables `umdns` in its uci-defaults.
+
+Possible later improvement:
+
+- DHCP option based hint
 - QR/token based onboarding
 
 ### 3. Pairing security is primitive

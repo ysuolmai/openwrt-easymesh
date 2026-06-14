@@ -117,6 +117,7 @@ require_ac_packages() {
 	require_symbol CONFIG_PACKAGE_luci-app-mesh-ac
 	require_symbol CONFIG_PACKAGE_luci-app-dawn
 	require_symbol CONFIG_PACKAGE_jshn
+	require_symbol CONFIG_PACKAGE_umdns
 }
 
 require_ap_packages() {

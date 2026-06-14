@@ -1,6 +1,11 @@
 config agent 'main'
 	option enabled '1'
-	option ac_url 'http://192.168.50.1/cgi-bin/mesh-ac'
+	# ac_discovery: auto | static
+	#   auto   - try explicit ac_url, then mDNS, then gateway probe, then default
+	#   static - use ac_url only
+	option ac_discovery 'auto'
+	# Leave ac_url empty to rely on discovery. Set it to pin a specific AC.
+	option ac_url ''
 	option pairing_token 'change-this-pairing-token'
 	option poll_interval '30'
 	option wired_preferred '1'
