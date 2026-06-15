@@ -73,6 +73,10 @@ render_config() {
 	cat <<EOF
 {
   "approved": true,
+  "network": {
+    "mode": "$(uci_get mesh_ac.main.network_mode bridge)",
+    "cidr": "$(uci_get mesh_ac.main.network_cidr 192.168.50.0/24)"
+  },
   "wifi": {
     "ssid": "$(uci_get mesh_ac.main.ssid OpenWrt-Mesh)",
     "key": "$(uci_get mesh_ac.main.key change-this-client-password)",

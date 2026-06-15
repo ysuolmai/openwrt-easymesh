@@ -25,6 +25,13 @@ return view.extend({
 		o.default = "1";
 		o = s.option(form.Flag, "local_member", _("Enable AC local mesh member"));
 		o.default = "1";
+		o = s.option(form.ListValue, "network_mode", _("Network mode"));
+		o.value("bridge", _("Bridge"));
+		o.value("gateway", _("Gateway"));
+		o.default = "bridge";
+		o = s.option(form.Value, "network_cidr", _("Gateway LAN CIDR"));
+		o.default = "192.168.50.0/24";
+		o.depends("network_mode", "gateway");
 		s.option(form.Value, "ssid", _("Client SSID"));
 		o = s.option(form.Value, "key", _("Client password"));
 		o.password = true;

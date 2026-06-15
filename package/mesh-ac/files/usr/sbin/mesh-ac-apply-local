@@ -8,11 +8,9 @@ uci_get() {
 	uci -q get "$1" 2>/dev/null || printf '%s' "$2"
 }
 
-enabled="$(uci_get mesh_ac.main.local_member 1)"
-[ "$enabled" = "1" ] || {
-	logger -t mesh-ac "local mesh member disabled"
-	exit 0
-}
+local_member="$(uci_get mesh_ac.main.local_member 1)"
+network_mode="$(uci_get mesh_ac.main.network_mode bridge)"
+network_cidr="$(uci_get mesh_ac.main.network_cidr 192.168.50.0/24)"
 
 tmp="/tmp/mesh-ac-local-config.json"
 umask 077
@@ -20,36 +18,48 @@ umask 077
 json_init
 json_add_boolean approved 1
 
-json_add_object wifi
-json_add_string ssid "$(uci_get mesh_ac.main.ssid OpenWrt-Mesh)"
-json_add_string key "$(uci_get mesh_ac.main.key change-this-client-password)"
-json_add_string country "$(uci_get mesh_ac.main.country US)"
-json_add_string encryption "$(uci_get mesh_ac.main.encryption psk2+ccmp)"
-json_add_string ieee80211k "$(uci_get mesh_ac.main.ieee80211k 1)"
-json_add_string ieee80211v "$(uci_get mesh_ac.main.ieee80211v 1)"
-json_add_string ieee80211r "$(uci_get mesh_ac.main.ieee80211r 1)"
-json_add_string mobility_domain "$(uci_get mesh_ac.main.mobility_domain 4f57)"
-json_add_string ft_over_ds "$(uci_get mesh_ac.main.ft_over_ds 1)"
+json_add_object network
+json_add_string mode "$network_mode"
+json_add_string cidr "$network_cidr"
 json_close_object
 
-json_add_object backhaul
-json_add_string mesh_id "$(uci_get mesh_ac.main.mesh_id openwrt-ipq-backhaul)"
-json_add_string mesh_key "$(uci_get mesh_ac.main.mesh_key change-this-mesh-password)"
-json_add_string band "$(uci_get mesh_ac.main.band 5g)"
-json_add_string channel_5g "$(uci_get mesh_ac.main.channel_5g 149)"
-json_add_string channel_2g "$(uci_get mesh_ac.main.channel_2g 6)"
-json_add_string htmode_5g "$(uci_get mesh_ac.main.htmode_5g HE80)"
-json_add_string htmode_2g "$(uci_get mesh_ac.main.htmode_2g HE20)"
-json_add_string wired_preferred "$(uci_get mesh_ac.main.wired_preferred 1)"
-json_close_object
+if [ "$local_member" = "1" ]; then
+	json_add_object wifi
+	json_add_string ssid "$(uci_get mesh_ac.main.ssid OpenWrt-Mesh)"
+	json_add_string key "$(uci_get mesh_ac.main.key change-this-client-password)"
+	json_add_string country "$(uci_get mesh_ac.main.country US)"
+	json_add_string encryption "$(uci_get mesh_ac.main.encryption psk2+ccmp)"
+	json_add_string ieee80211k "$(uci_get mesh_ac.main.ieee80211k 1)"
+	json_add_string ieee80211v "$(uci_get mesh_ac.main.ieee80211v 1)"
+	json_add_string ieee80211r "$(uci_get mesh_ac.main.ieee80211r 1)"
+	json_add_string mobility_domain "$(uci_get mesh_ac.main.mobility_domain 4f57)"
+	json_add_string ft_over_ds "$(uci_get mesh_ac.main.ft_over_ds 1)"
+	json_close_object
 
-json_add_object dawn
-json_add_string enabled "$(uci_get mesh_ac.main.dawn_enabled 1)"
-json_add_string kicking "$(uci_get mesh_ac.main.dawn_kicking 3)"
-json_add_string set_hostapd_nr "$(uci_get mesh_ac.main.dawn_set_hostapd_nr 1)"
-json_close_object
+	json_add_object backhaul
+	json_add_string mesh_id "$(uci_get mesh_ac.main.mesh_id openwrt-ipq-backhaul)"
+	json_add_string mesh_key "$(uci_get mesh_ac.main.mesh_key change-this-mesh-password)"
+	json_add_string band "$(uci_get mesh_ac.main.band 5g)"
+	json_add_string channel_5g "$(uci_get mesh_ac.main.channel_5g 149)"
+	json_add_string channel_2g "$(uci_get mesh_ac.main.channel_2g 6)"
+	json_add_string htmode_5g "$(uci_get mesh_ac.main.htmode_5g HE80)"
+	json_add_string htmode_2g "$(uci_get mesh_ac.main.htmode_2g HE20)"
+	json_add_string wired_preferred "$(uci_get mesh_ac.main.wired_preferred 1)"
+	json_close_object
+
+	json_add_object dawn
+	json_add_string enabled "$(uci_get mesh_ac.main.dawn_enabled 1)"
+	json_add_string kicking "$(uci_get mesh_ac.main.dawn_kicking 3)"
+	json_add_string set_hostapd_nr "$(uci_get mesh_ac.main.dawn_set_hostapd_nr 1)"
+	json_close_object
+fi
 
 json_dump > "$tmp"
 
-/usr/sbin/mesh-agent-apply --preserve-lan "$tmp"
-logger -t mesh-ac "applied local mesh member config"
+if [ "$local_member" = "1" ]; then
+	/usr/sbin/mesh-agent-apply --local-ac "$tmp"
+	logger -t mesh-ac "applied local mesh member config"
+else
+	/usr/sbin/mesh-agent-apply --local-ac --network-only "$tmp"
+	logger -t mesh-ac "applied AC network config"
+fi

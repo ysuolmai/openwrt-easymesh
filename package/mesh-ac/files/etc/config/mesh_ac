@@ -2,6 +2,7 @@ config controller 'main'
 	option enabled '1'
 	option pairing_enabled '1'
 	option local_member '1'
+	option network_mode 'bridge'
 	option network_cidr '192.168.50.0/24'
 
 	option ssid 'OpenWrt-Mesh'

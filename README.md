@@ -24,9 +24,9 @@
 客户端 Wi-Fi SSID
 ```
 
-AC 可以是负责拨号和 DHCP 的主路由，也可以只是挂在现有主路由下面的一个 OpenWrt 设备。AP 不默认负责拨号、DHCP 或 NAT。
+AC 可以是负责拨号和 DHCP 的主路由，也可以只是挂在现有主路由下面的桥接节点。AP 不负责拨号、DHCP 或 NAT；批准前和批准后都会把 WAN/LAN 当作同一个二层接入口。
 
-如果 AC 自己也带 Wi-Fi，AC 固件默认提供本机 Mesh 成员模式。这个模式只应用 Wi-Fi AP、802.11s 回程、`batman-adv` 和 DAWN，不会把 AC 的 LAN/WAN/DHCP/防火墙改成托管 AP 模式。
+AC 的 `Network mode` 控制本机网络角色：`Bridge` 模式下 WAN、LAN、Wi-Fi 和 Mesh 回程都桥到同一个 LAN，客户端地址来自上游 DHCP；`Gateway` 模式下 AC 保留 WAN 上联并在 LAN 侧提供 DHCP，AP 仍然作为桥接节点接入 AC LAN。
 
 ## 组件
 
@@ -51,7 +51,7 @@ AC 的 LuCI 管理页面：
 - 配置 DAWN 开关
 - 查看和批准 AP
 - 启用 AC 本地 Mesh 成员模式
-- 手动应用 AC 本机 Wi-Fi / Mesh 配置
+- 底部 Save & Apply 会应用 AC 本机 Wi-Fi / Mesh / 网络模式配置
 
 页面路径：
 
@@ -68,7 +68,7 @@ Services -> Mesh AC
 - 拉取 AC 下发的配置
 - 写入 OpenWrt UCI 配置
 - 生成 AP SSID、802.11s 回程、batman-adv、DAWN 参数
-- 在 AC 本地成员模式下可用 `--preserve-lan` 只应用无线和 Mesh，不改 LAN/WAN/DHCP
+- 在 AC 本地成员模式下可用 `--local-ac` 按 `Bridge` 或 `Gateway` 网络模式应用本机配置
 
 ## 固件目标
 
@@ -205,7 +205,9 @@ Country
 5 GHz channel
 ```
 
-如果这台 AC 本身也要发 Wi-Fi / 加入 Mesh，保持 `Enable AC local mesh member` 开启，然后点击 `Apply local mesh config`。该动作会先保存页面配置，再把 AC 本机无线接管为 Mesh 配置：清理默认 `ImmortalWrt` 等 LAN AP SSID，创建客户端 SSID、802.11s 回程、`batman-adv` 和 DAWN 配置；AC 原有 LAN/WAN/DHCP/防火墙会保留。
+`Network mode` 默认是 `Bridge`：AC 的 WAN/LAN、客户端 Wi-Fi 和 Mesh 回程会处在同一个二层 LAN，客户端地址来自上游 DHCP。如果 AC 要作为主路由提供 DHCP/NAT，改成 `Gateway`。
+
+点击 LuCI 底部 `Save & Apply` 后，AC 会按 `Network mode` 应用 WAN/LAN 桥接或网关网络。如果这台 AC 本身也要发 Wi-Fi / 加入 Mesh，保持 `Enable AC local mesh member` 开启；应用时还会清理默认 `ImmortalWrt` 等 LAN AP SSID，创建客户端 SSID、802.11s 回程、`batman-adv` 和 DAWN 配置。
 
 ### 2. 刷 AP 固件
 
@@ -215,6 +217,8 @@ Country
 IPQ60XX-MESH-AP
 MT7981-MESH-AP
 ```
+
+AP 固件首次启动会先进入安全的桥接接入状态：关闭本机 LAN DHCP，把 WAN/LAN 当作同一个二层接入口，并清理默认 LAN Wi-Fi AP。刷完后可以把 AP 的 WAN 或 LAN 接到 AC 下游，也可以接到 AC 所在的同一个上游局域网。
 
 AP 默认通过 mDNS 自动发现 AC,无需手动配置地址，也不需要单独设置配对 token。发现顺序:
 
@@ -236,7 +240,7 @@ uci commit mesh_agent
 
 ### 3. 有线配对
 
-把 AP 用网线接入 AC 所在 LAN。
+把 AP 用网线接入 AC 所在网络。AP 的 WAN 口或 LAN 口都可以使用；在桥接模式下它们都会进入同一个 `br-lan`。
 
 AP 会自动注册。AC 页面会出现待批准 AP，点击 `Approve`。
 
