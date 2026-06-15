@@ -22,6 +22,7 @@ delete_wifi_iface_by_name() {
 	local name="$1"
 	local section
 
+	uci -q delete "wireless.$name" >/dev/null 2>&1 || true
 	config_load wireless
 	config_foreach _delete_wifi_iface_by_name wifi-iface "$name"
 }
@@ -187,16 +188,16 @@ delete_wifi_iface_by_name mesh_ap_5g
 delete_lan_ap_ifaces
 
 if [ -n "$mesh_radio" ]; then
-	uci -q add wireless wifi-iface
-	uci -q set wireless.@wifi-iface[-1].name=mesh_backhaul
-	uci -q set wireless.@wifi-iface[-1].device="$mesh_radio"
-	uci -q set wireless.@wifi-iface[-1].mode=mesh
-	uci -q set wireless.@wifi-iface[-1].network=batmesh
-	uci -q set wireless.@wifi-iface[-1].mesh_id="$mesh_id"
-	uci -q set wireless.@wifi-iface[-1].encryption=sae
-	uci -q set wireless.@wifi-iface[-1].key="$mesh_key"
-	uci -q set wireless.@wifi-iface[-1].mesh_fwding=0
-	uci -q set wireless.@wifi-iface[-1].disabled=0
+	uci -q set wireless.mesh_backhaul=wifi-iface
+	uci -q set wireless.mesh_backhaul.name=mesh_backhaul
+	uci -q set wireless.mesh_backhaul.device="$mesh_radio"
+	uci -q set wireless.mesh_backhaul.mode=mesh
+	uci -q set wireless.mesh_backhaul.network=batmesh
+	uci -q set wireless.mesh_backhaul.mesh_id="$mesh_id"
+	uci -q set wireless.mesh_backhaul.encryption=sae
+	uci -q set wireless.mesh_backhaul.key="$mesh_key"
+	uci -q set wireless.mesh_backhaul.mesh_fwding=0
+	uci -q set wireless.mesh_backhaul.disabled=0
 fi
 
 add_ap_iface() {
@@ -204,27 +205,27 @@ add_ap_iface() {
 	local name="$2"
 
 	[ -n "$radio" ] || return
-	uci -q add wireless wifi-iface
-	uci -q set wireless.@wifi-iface[-1].name="$name"
-	uci -q set wireless.@wifi-iface[-1].device="$radio"
-	uci -q set wireless.@wifi-iface[-1].mode=ap
-	uci -q set wireless.@wifi-iface[-1].network=lan
-	uci -q set wireless.@wifi-iface[-1].ssid="$ssid"
-	uci -q set wireless.@wifi-iface[-1].encryption="$encryption"
-	uci -q set wireless.@wifi-iface[-1].key="$key"
-	uci -q set wireless.@wifi-iface[-1].ieee80211k="$ieee80211k"
-	uci -q set wireless.@wifi-iface[-1].bss_transition="$ieee80211v"
-	uci -q set wireless.@wifi-iface[-1].wnm_sleep_mode="$ieee80211v"
+	uci -q set "wireless.$name=wifi-iface"
+	uci -q set "wireless.$name.name=$name"
+	uci -q set "wireless.$name.device=$radio"
+	uci -q set "wireless.$name.mode=ap"
+	uci -q set "wireless.$name.network=lan"
+	uci -q set "wireless.$name.ssid=$ssid"
+	uci -q set "wireless.$name.encryption=$encryption"
+	uci -q set "wireless.$name.key=$key"
+	uci -q set "wireless.$name.ieee80211k=$ieee80211k"
+	uci -q set "wireless.$name.bss_transition=$ieee80211v"
+	uci -q set "wireless.$name.wnm_sleep_mode=$ieee80211v"
 	if [ "$ieee80211v" = "1" ]; then
-		uci -q set wireless.@wifi-iface[-1].time_advertisement=2
+		uci -q set "wireless.$name.time_advertisement=2"
 	else
-		uci -q set wireless.@wifi-iface[-1].time_advertisement=0
+		uci -q set "wireless.$name.time_advertisement=0"
 	fi
-	uci -q set wireless.@wifi-iface[-1].ieee80211r="$ieee80211r"
-	uci -q set wireless.@wifi-iface[-1].mobility_domain="$mobility_domain"
-	uci -q set wireless.@wifi-iface[-1].ft_over_ds="$ft_over_ds"
-	uci -q set wireless.@wifi-iface[-1].ft_psk_generate_local=1
-	uci -q set wireless.@wifi-iface[-1].disabled=0
+	uci -q set "wireless.$name.ieee80211r=$ieee80211r"
+	uci -q set "wireless.$name.mobility_domain=$mobility_domain"
+	uci -q set "wireless.$name.ft_over_ds=$ft_over_ds"
+	uci -q set "wireless.$name.ft_psk_generate_local=1"
+	uci -q set "wireless.$name.disabled=0"
 }
 
 add_ap_iface "$radio_2g" mesh_ap_2g
