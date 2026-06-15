@@ -29,7 +29,7 @@ install_shadcn_theme() {
 		rm -rf "$dst"
 	fi
 	git clone --depth=1 --single-branch --branch main \
-		https://github.com/eamonxg/luci-theme-shadcn.git "$dst"
+		https://github.com/ysuolmai/luci-theme-shadcn.git "$dst"
 
 	find "$OPENWRT_DIR/feeds/luci/collections" -type f -name Makefile \
 		-exec sed -i 's/luci-theme-bootstrap/luci-theme-shadcn/g' {} +

@@ -148,7 +148,7 @@ MTK 编译：
 4. workflow 会同时构建 `MT7981-MESH-AC` 和 `MT7981-MESH-AP`
 5. 如只想验证配置，勾选 `test_config_only`
 
-AC 固件会按上游 OpenWRT-CI 的方式注入 `eamonxg/luci-theme-shadcn`，并默认启用 shadcn LuCI 主题。
+AC 固件会按上游 OpenWRT-CI 的方式注入 `ysuolmai/luci-theme-shadcn`，并默认启用 shadcn LuCI 主题。
 
 workflow 会发布：
 
