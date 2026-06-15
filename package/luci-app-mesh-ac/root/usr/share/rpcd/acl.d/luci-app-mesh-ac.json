@@ -11,9 +11,7 @@
 		"write": {
 			"uci": [ "mesh_ac" ],
 			"file": {
-				"/usr/sbin/mesh-ac-apply-local": [ "exec" ],
-				"/usr/sbin/mesh-ac-approve": [ "exec" ],
-				"/etc/init.d/mesh-ac restart": [ "exec" ]
+				"/usr/sbin/mesh-ac-approve": [ "exec" ]
 			}
 		}
 	}
