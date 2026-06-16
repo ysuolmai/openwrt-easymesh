@@ -426,13 +426,12 @@ gh workflow run build-mtk.yml -R ysuolmai/openwrt-easymesh -f test_config_only=t
 
 ## Important Known Issues / TODO
 
-### 1. Wired-first / wireless-fallback (deferred — needs hardif redesign)
+### 1. Wired-first / wireless-fallback
 
 Current state: both backhauls coexist. The wireless 802.11s link is a
 batman-adv hardif (`batmesh` -> `bat0`), `bat0` is bridged into `br-lan`, and
 the Ethernet backhaul port is also a `br-lan` member. Loops are handled by
-batman-adv `bridge_loop_avoidance` (`bat0.bridge_loop_avoidance=1`). There is no
-explicit wired preference yet — the active path is whatever BLA elects.
+batman-adv `bridge_loop_avoidance` (`bat0.bridge_loop_avoidance=1`). `Prefer wired backhaul` now enables `easymesh-backhaul`, which monitors wired bridge-port carrier changes, flushes local bridge FDB/neighbor state, and sends LAN renew/ping traffic to accelerate upstream relearning. The wireless mesh remains attached to batman-adv at all times.
 
 A previous attempt added a watchdog that detached the wireless mesh from
 batman-adv (`batctl if del`) whenever a wire was up and no mesh peer was

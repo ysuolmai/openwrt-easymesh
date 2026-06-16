@@ -340,6 +340,8 @@ apply_network_config() {
 	section="$LAN_BRIDGE_SECTION"
 
 	uci -q set network.lan=interface
+	uci -q set "network.$section.ageing_time=30"
+	uci -q set "network.$section.bridge_empty=1"
 	uci -q set network.lan.device=br-lan
 	add_lan_ports_to_bridge "$section"
 
@@ -380,6 +382,9 @@ if [ "$network_only" = "1" ]; then
 	[ -n "$lan_prefix" ] || lan_prefix="24"
 	lan_netmask="$(prefix_to_netmask "$lan_prefix")"
 	apply_network_config "$network_mode" 0
+	wired_preferred="$(jget '@.backhaul.wired_preferred' 1)"
+	uci -q set easymesh_agent.main.wired_preferred="$wired_preferred"
+	uci commit easymesh_agent >/dev/null 2>&1 || true
 	wifi config >/dev/null 2>&1 || true
 	delete_wifi_iface_by_name mesh_backhaul
 	delete_wifi_iface_by_name mesh_ap_2g
@@ -393,6 +398,8 @@ if [ "$network_only" = "1" ]; then
 	/etc/init.d/network reload >/dev/null 2>&1 || true
 	wifi reload >/dev/null 2>&1 || true
 	logger -t easymesh-agent "applied network-only config (network_mode=$network_mode)"
+	/etc/init.d/easymesh-backhaul enable >/dev/null 2>&1 || true
+	/etc/init.d/easymesh-backhaul restart >/dev/null 2>&1 || true
 	exit 0
 fi
 
@@ -417,6 +424,7 @@ channel_5g="$(jget '@.backhaul.channel_5g' 149)"
 channel_2g="$(jget '@.backhaul.channel_2g' 6)"
 htmode_5g="$(jget '@.backhaul.htmode_5g' HE80)"
 htmode_2g="$(jget '@.backhaul.htmode_2g' HE20)"
+wired_preferred="$(jget '@.backhaul.wired_preferred' 1)"
 
 network_mode="$(jget '@.network.mode' bridge)"
 network_cidr="$(jget '@.network.cidr' 192.168.50.0/24)"
@@ -452,6 +460,7 @@ uci -q set network.bat0.proto=batadv
 uci -q set network.bat0.routing_algo=BATMAN_V
 uci -q set network.bat0.bridge_loop_avoidance=1
 uci -q set network.bat0.distributed_arp_table=1
+uci -q set network.bat0.gw_mode=off
 
 uci -q set network.batmesh=interface
 uci -q set network.batmesh.proto=batadv_hardif
@@ -523,10 +532,14 @@ uci commit wireless
 uci commit dawn || true
 /etc/init.d/dnsmasq restart >/dev/null 2>&1 || true
 /etc/init.d/odhcpd restart >/dev/null 2>&1 || true
+uci -q set easymesh_agent.main.wired_preferred="$wired_preferred"
+uci commit easymesh_agent >/dev/null 2>&1 || true
 
 wifi reload >/dev/null 2>&1 || wifi up >/dev/null 2>&1 || true
 /etc/init.d/network reload >/dev/null 2>&1 || true
 attach_mesh_backhaul_to_batman
+/etc/init.d/easymesh-backhaul enable >/dev/null 2>&1 || true
+/etc/init.d/easymesh-backhaul restart >/dev/null 2>&1 || true
 [ "$dawn_enabled" = "1" ] && /etc/init.d/dawn restart >/dev/null 2>&1 || true
 
 if [ "$local_ac" = "1" ]; then

@@ -12,7 +12,7 @@ define Package/easymesh-agent
   SECTION:=net
   CATEGORY:=Network
   TITLE:=Mesh managed AP agent
-  DEPENDS:=+curl +jsonfilter +umdns +iw +wpad-openssl +kmod-batman-adv +batctl-default +dawn
+  DEPENDS:=+curl +jsonfilter +umdns +iw +ip-bridge +wpad-openssl +kmod-batman-adv +batctl-default +dawn
 endef
 
 define Package/easymesh-agent/description

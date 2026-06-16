@@ -8,11 +8,13 @@ if [ -f /etc/config/easymesh ]; then
 	uci -q set easymesh_agent.main.enabled='0'
 	uci -q commit easymesh_agent
 	/etc/init.d/easymesh-agent disable >/dev/null 2>&1 || true
+	/etc/init.d/easymesh-backhaul enable >/dev/null 2>&1 || true
 else
 	ath11k_nss_set_module_config 0
 	echo 0 > /sys/module/ath11k/parameters/nss_offload 2>/dev/null || true
 	/usr/sbin/easymesh-agent-apply --network-only >/dev/null 2>&1 || true
 	/etc/init.d/easymesh-agent enable >/dev/null 2>&1 || true
+	/etc/init.d/easymesh-backhaul enable >/dev/null 2>&1 || true
 fi
 
 exit 0

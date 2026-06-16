@@ -1,0 +1,122 @@
+#!/bin/sh
+
+BRIDGE_NAME="${BRIDGE_NAME:-br-lan}"
+INTERVAL="${INTERVAL:-1}"
+
+log() {
+	logger -t easymesh-backhaul "$*"
+}
+
+uci_get() {
+	uci -q get "$1" 2>/dev/null || printf '%s' "$2"
+}
+
+wired_preferred_enabled() {
+	local value
+
+	if [ -f /etc/easymesh-agent/config.json ]; then
+		value="$(jsonfilter -i /etc/easymesh-agent/config.json -e '@.backhaul.wired_preferred' 2>/dev/null || printf '%s' '')"
+	elif [ -f /etc/config/easymesh ]; then
+		value="$(uci_get easymesh.main.wired_preferred 1)"
+	else
+		value="$(uci_get easymesh_agent.main.wired_preferred 1)"
+	fi
+	[ "$value" = "1" ]
+}
+
+is_wireless_iface() {
+	local iface="$1"
+
+	[ -d "/sys/class/net/$iface/wireless" ] && return 0
+	case "$iface" in
+		wlan*|phy*|mesh*) return 0 ;;
+	esac
+	iw dev 2>/dev/null | awk '
+		$1 == "Interface" && $2 == iface { found = 1 }
+		END { exit found ? 0 : 1 }
+	' iface="$iface"
+}
+
+wired_bridge_ports() {
+	local path iface
+
+	[ -d "/sys/class/net/$BRIDGE_NAME/brif" ] || return 0
+	for path in "/sys/class/net/$BRIDGE_NAME/brif/"*; do
+		[ -e "$path" ] || continue
+		iface="${path##*/}"
+		[ "$iface" = "bat0" ] && continue
+		is_wireless_iface "$iface" && continue
+		[ -e "/sys/class/net/$iface/carrier" ] || continue
+		printf '%s\n' "$iface"
+	done
+}
+
+port_carrier() {
+	local iface="$1"
+
+	cat "/sys/class/net/$iface/carrier" 2>/dev/null || printf 'missing'
+}
+
+port_state() {
+	local iface
+
+	for iface in $(wired_bridge_ports | sort); do
+		printf '%s=%s ' "$iface" "$(port_carrier "$iface")"
+	done
+}
+
+kick_lan_traffic() {
+	local gw
+
+	ubus call network.interface.lan renew >/dev/null 2>&1 || true
+	gw="$(ip -4 route show default 2>/dev/null | awk '/default/ {print $3; exit}')"
+	if [ -n "$gw" ] && command -v ping >/dev/null 2>&1; then
+		ping -c 1 -W 1 "$gw" >/dev/null 2>&1 || true
+	fi
+}
+
+flush_learning_state() {
+	local reason="$1"
+	local ports="$2"
+	local iface
+
+	if command -v bridge >/dev/null 2>&1; then
+		bridge fdb flush dev "$BRIDGE_NAME" >/dev/null 2>&1 || true
+		bridge fdb flush dev bat0 >/dev/null 2>&1 || true
+		for iface in $ports; do
+			bridge fdb flush dev "$iface" >/dev/null 2>&1 || true
+		done
+	fi
+	ip neigh flush dev "$BRIDGE_NAME" >/dev/null 2>&1 || true
+	kick_lan_traffic
+	sleep 1
+	ip neigh flush dev "$BRIDGE_NAME" >/dev/null 2>&1 || true
+	kick_lan_traffic
+	sleep 1
+	ip neigh flush dev "$BRIDGE_NAME" >/dev/null 2>&1 || true
+	kick_lan_traffic
+	log "flushed learning state after $reason (ports=$ports)"
+}
+
+last_state=""
+
+while true; do
+	if ! wired_preferred_enabled; then
+		sleep 5
+		last_state=""
+		continue
+	fi
+
+	state="$(port_state)"
+	if [ "$state" != "$last_state" ]; then
+		ports="$(wired_bridge_ports | sort | tr '\n' ' ')"
+		if [ -n "$last_state" ]; then
+			flush_learning_state "wired link change" "$ports"
+		elif [ -n "$state" ]; then
+			flush_learning_state "startup" "$ports"
+		fi
+		last_state="$state"
+	fi
+
+	sleep "$INTERVAL"
+done

@@ -81,6 +81,7 @@ require_common_mesh_packages() {
 	require_symbol CONFIG_PACKAGE_jsonfilter
 	require_symbol CONFIG_PACKAGE_curl
 	require_symbol CONFIG_PACKAGE_iw
+	require_symbol CONFIG_PACKAGE_ip-bridge
 	require_symbol CONFIG_PACKAGE_iwinfo
 }
 
