@@ -80,15 +80,32 @@ _delete_lan_ap_iface() {
 _find_radio() {
 	local section="$1"
 	local wanted="$2"
-	local band htmode
+	local band htmode channel
 
 	[ -n "$FOUND_RADIO" ] && return 0
 	config_get band "$section" band
 	config_get htmode "$section" htmode
+	config_get channel "$section" channel
 
-	case "$wanted:$band:$htmode" in
-		2g:2g:*|2g:*:HT*) FOUND_RADIO="$section" ;;
-		5g:5g:*|5g:*:VHT*|5g:*:HE*) FOUND_RADIO="$section" ;;
+	case "$wanted:$band" in
+		2g:2g|5g:5g) FOUND_RADIO="$section"; return 0 ;;
+	esac
+	[ -n "$band" ] && return 0
+
+	case "$channel" in
+		1|2|3|4|5|6|7|8|9|10|11|12|13|14)
+			[ "$wanted" = "2g" ] && FOUND_RADIO="$section"
+			;;
+		auto|'') ;;
+		*)
+			[ "$wanted" = "5g" ] && FOUND_RADIO="$section"
+			;;
+	esac
+	[ -n "$FOUND_RADIO" ] && return 0
+
+	case "$wanted:$htmode" in
+		2g:HT*) FOUND_RADIO="$section" ;;
+		5g:VHT*) FOUND_RADIO="$section" ;;
 	esac
 	return 0
 }
@@ -180,6 +197,7 @@ collect_wan_ports() {
 	add_wan_candidate "$(uci -q get network.wan6.device 2>/dev/null || true)"
 	add_wan_candidate "$(uci -q get network.wan6.ifname 2>/dev/null || true)"
 	[ -d /sys/class/net/wan ] && add_wan_candidate wan
+	return 0
 }
 
 add_wan_ports_to_bridge() {
@@ -190,6 +208,7 @@ add_wan_ports_to_bridge() {
 	for port in $WAN_PORTS; do
 		add_bridge_port "$section" "$port"
 	done
+	return 0
 }
 
 add_lan_ports_to_bridge() {

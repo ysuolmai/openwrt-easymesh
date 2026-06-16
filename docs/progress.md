@@ -34,7 +34,8 @@ Latest implemented behavior:
 - AC JSON config and AP apply logic both support split-band SSIDs.
 - New read-only helper: `/usr/sbin/mesh-ac-status`.
 - Managed APs now use automatic registration. LuCI shows online/offline and last seen time.
-- AP agent skips reapplying an unchanged AC config, avoiding repeated Wi-Fi reloads that can flap wireless backhaul.
+- AP agent skips reapplying an unchanged AC config only after local wireless state matches the desired mesh SSIDs/backhaul; stale or partially applied local state is repaired automatically.
+- MT7981 radio detection now trusts explicit `band` first and no longer treats all `HE*` radios as 5 GHz, so 2.4 GHz 802.11ax radios keep the 2.4 GHz channel/htmode.
 - 802.11s mesh backhaul is attached to `batman-adv` by real mesh interface name, not by the UCI alias `@mesh_backhaul`.
 - AP images now include LuCI and `ysuolmai/luci-theme-shadcn`, matching AC theme source.
 - Workflow release files are prefixed with the config target, for example `IPQ60XX-MESH-AC-*` and `IPQ60XX-MESH-AP-*`.
