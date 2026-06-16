@@ -12,7 +12,7 @@ define Package/mesh-agent
   SECTION:=net
   CATEGORY:=Network
   TITLE:=Mesh managed AP agent
-  DEPENDS:=+curl +jsonfilter +umdns +wpad-openssl +kmod-batman-adv +batctl-default +dawn
+  DEPENDS:=+curl +jsonfilter +umdns +iw +wpad-openssl +kmod-batman-adv +batctl-default +dawn
 endef
 
 define Package/mesh-agent/description

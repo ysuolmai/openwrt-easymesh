@@ -20,6 +20,7 @@ reachable by AP agents during pairing and config pulls.
 - accept new AP registration while pairing is enabled
 - render AP config as JSON
 - provide LuCI UI
+- optionally apply local Wi-Fi mesh membership when the separate local-member package is installed and Wi-Fi is detected
 
 ## AP Agent Responsibilities
 

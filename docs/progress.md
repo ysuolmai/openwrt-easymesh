@@ -20,7 +20,8 @@ Current direction:
 - When `pairing_enabled=1`, a new AP registers and immediately pulls config from AC, creating client AP SSIDs plus 802.11s backhaul.
 - When `pairing_enabled=0`, unknown APs cannot register; known APs can keep updating `last_seen` and pulling config.
 - AC can run in `Bridge` mode or `Gateway` mode. AP always behaves as a bridge node.
-- AC defaults to controller/router-only mode with ath11k NSS offload enabled. When `local_member=1`, AC becomes a local mesh member and ath11k NSS offload is disabled.
+- `mesh-ac` can run as a controller-only plugin on no-wifi hardware. `mesh-ac-local-member` adds AC local mesh support for Wi-Fi hardware.
+- AC defaults to controller/router-only mode with ath11k NSS offload enabled. When `local_member=1` and local Wi-Fi is detected, AC becomes a local mesh member and ath11k NSS offload is disabled.
 
 Latest implemented behavior:
 
@@ -36,6 +37,7 @@ Latest implemented behavior:
 - 802.11s mesh backhaul is attached to `batman-adv` by real mesh interface name, not by the UCI alias `@mesh_backhaul`.
 - AP images now include LuCI and `ysuolmai/luci-theme-shadcn`, matching AC theme source.
 - Workflow release files are prefixed with the config target, for example `IPQ60XX-MESH-AC-*` and `IPQ60XX-MESH-AP-*`.
+- LuCI uses runtime Wi-Fi detection from `mesh-ac-status`: no-wifi/controller-only AC hides local mesh member controls and active local Wi-Fi state.
 
 Recent commits:
 
@@ -53,7 +55,7 @@ b681b1a Use named wireless sections
 Validation run locally for latest commit:
 
 ```sh
-sh -n package/mesh-ac/files/usr/sbin/mesh-ac-apply-local package/mesh-ac/files/usr/sbin/mesh-ac-status package/mesh-ac/files/www/cgi-bin/mesh-ac package/mesh-agent/files/usr/sbin/mesh-agent-apply
+sh -n package/mesh-ac-local-member/files/usr/sbin/mesh-ac-apply-local package/mesh-ac/files/usr/sbin/mesh-ac-status package/mesh-ac/files/www/cgi-bin/mesh-ac package/mesh-agent/files/usr/sbin/mesh-agent-apply
 node --check package/luci-app-mesh-ac/htdocs/luci-static/resources/view/mesh-ac/overview.js
 python3 -m json.tool package/luci-app-mesh-ac/root/usr/share/rpcd/acl.d/luci-app-mesh-ac.json
 git diff --check
@@ -142,6 +144,7 @@ package/mesh-agent/files/usr/sbin/mesh-agent
 package/mesh-agent/files/usr/sbin/mesh-agent-apply
 package/mesh-ac/files/www/cgi-bin/mesh-ac
 package/mesh-ac/files/usr/sbin/mesh-ac-status
+package/mesh-ac-local-member/files/usr/sbin/mesh-ac-apply-local
 package/luci-app-mesh-ac/htdocs/luci-static/resources/view/mesh-ac/overview.js
 ```
 
@@ -193,7 +196,7 @@ Provides:
 - `/etc/init.d/mesh-ac`
 - `/www/cgi-bin/mesh-ac`
 - `/usr/sbin/mesh-ac-list`
-- `/usr/sbin/mesh-ac-apply-local`
+- `/usr/sbin/mesh-ac-status`
 
 Current behavior:
 
@@ -203,13 +206,29 @@ Current behavior:
 - New APs are accepted automatically while `pairing_enabled=1`.
 - When `pairing_enabled=0`, unknown APs are rejected and known APs can continue to update `last_seen`.
 - Known APs can fetch rendered config through `/cgi-bin/mesh-ac/config`.
-- `mesh-ac-apply-local` renders local AC config to JSON and calls `mesh-agent-apply --local-ac`.
-- AC image config selects `mesh-agent` so the shared apply helper is present, while avoiding a package-level dependency cycle.
+- Does not depend on Wi-Fi, `mesh-agent`, `batman-adv`, or DAWN. This package can be reused as a no-wifi/controller-only AC plugin.
 
 Security status:
 
 - Home-use pairing is tokenless: `pairing_enabled=1` allows new AP registration, while known APs can continue to fetch config after pairing is disabled.
 - Future improvement can add a timed pairing window or per-AP credentials if stronger security is needed.
+
+### `mesh-ac-local-member`
+
+Path: `package/mesh-ac-local-member/`
+
+Provides:
+
+- `/usr/sbin/mesh-ac-apply-local`
+- `/etc/uci-defaults/91-mesh-ac-local-member-enable`
+
+Current behavior:
+
+- Optional add-on for AC hardware with local Wi-Fi.
+- Depends on `mesh-agent`, so it can reuse the same apply helper as APs.
+- Detects local Wi-Fi by checking `/etc/config/wireless`, `/sys/class/ieee80211`, or `iw phy`.
+- Skips local apply on no-wifi hardware even if installed.
+- Keeps ath11k NSS offload enabled while `local_member=0`; disables it while `local_member=1`.
 
 ### `mesh-agent`
 
@@ -324,6 +343,7 @@ Current behavior:
   - `test_config_only`
 - Default source repo is `https://github.com/VIKINGYFY/immortalwrt.git`.
 - AC and AP images clone `ysuolmai/luci-theme-shadcn` during prepare and select `CONFIG_PACKAGE_luci-theme-shadcn=y`.
+- This repo's AC targets select `mesh-ac-local-member` for full AC behavior. Other projects can select only `mesh-ac` + `luci-app-mesh-ac` for a no-wifi/controller-only AC plugin.
 - Build cache is enabled for non-config-only runs, following upstream OpenWRT-CI: `.ccache`, `staging_dir/host*`, and `staging_dir/tool*` are cached and toolchain stamp files are refreshed after restore.
 - `config_name` manual selection was removed.
 - After `make defconfig`, workflow runs `scripts/check-openwrt-config.sh` to verify required device profiles, Wi-Fi driver/firmware symbols, source-side support files, KVR-capable `wpad-openssl`, DAWN, uMDNS, `batman-adv`, and the shadcn LuCI theme on AC/AP images.
@@ -358,7 +378,7 @@ User asked whether the AC itself can also be a mesh member if the AC hardware ha
 Implemented design:
 
 - `/etc/config/mesh_ac` has `option local_member '0'` by default.
-- LuCI has `Enable AC local mesh member`.
+- LuCI shows `Enable AC local mesh member` only when local Wi-Fi is detected and `/usr/sbin/mesh-ac-apply-local` is installed.
 - `/usr/sbin/mesh-ac-apply-local` renders AC config into the same JSON structure used by managed APs.
 - It calls `/usr/sbin/mesh-agent-apply --local-ac /tmp/mesh-ac-local-config.json` when local member mode is enabled.
 - `mesh-agent-apply --local-ac` applies Wi-Fi APs, 802.11s backhaul, `batman-adv`, and DAWN while preserving AC LAN/WAN/DHCP/firewall behavior. It removes existing LAN AP Wi-Fi interfaces such as the default `ImmortalWrt` SSID so the AC only advertises the configured mesh client SSID.
@@ -376,7 +396,7 @@ Validation done locally:
 
 ```sh
 bash -n package/mesh-agent/files/usr/sbin/mesh-agent-apply
-bash -n package/mesh-ac/files/usr/sbin/mesh-ac-apply-local
+bash -n package/mesh-ac-local-member/files/usr/sbin/mesh-ac-apply-local
 bash -n package/mesh-agent/files/etc/init.d/mesh-agent
 bash -n package/mesh-agent/files/etc/uci-defaults/90-mesh-agent-enable
 bash -n package/mesh-ac/files/etc/uci-defaults/90-mesh-ac-enable

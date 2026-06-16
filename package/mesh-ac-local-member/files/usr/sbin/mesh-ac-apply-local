@@ -20,6 +20,30 @@ set_ath11k_nss_offload() {
 	echo "$value" > /sys/module/ath11k/parameters/nss_offload 2>/dev/null || true
 }
 
+has_wireless_config() {
+	[ -f /etc/config/wireless ] || return 1
+	uci -q show wireless 2>/dev/null | grep -q '=wifi-device'
+}
+
+has_wifi_driver() {
+	local phy
+
+	for phy in /sys/class/ieee80211/*; do
+		[ -e "$phy" ] && return 0
+	done
+	command -v iw >/dev/null 2>&1 || return 1
+	iw phy >/dev/null 2>&1
+}
+
+has_local_wifi() {
+	has_wireless_config || has_wifi_driver
+}
+
+if ! has_local_wifi; then
+	logger -t mesh-ac "local mesh member support skipped: no local Wi-Fi detected"
+	exit 0
+fi
+
 local_member="$(uci_get mesh_ac.main.local_member 0)"
 network_mode="$(uci_get mesh_ac.main.network_mode bridge)"
 network_cidr="$(uci_get mesh_ac.main.network_cidr 192.168.50.0/24)"

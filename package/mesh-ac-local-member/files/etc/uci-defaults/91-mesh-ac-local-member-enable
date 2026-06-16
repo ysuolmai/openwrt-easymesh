@@ -1,0 +1,38 @@
+#!/bin/sh
+
+set_ath11k_nss_offload() {
+	local value="$1"
+
+	[ -f /etc/modules.d/ath11k ] || return 0
+	if grep -q 'nss_offload=' /etc/modules.d/ath11k; then
+		sed -i "s/nss_offload=[01]/nss_offload=$value/g" /etc/modules.d/ath11k
+	else
+		sed -i "s/^ath11k\\([[:space:]]\\|$\\)/ath11k nss_offload=$value\\1/" /etc/modules.d/ath11k
+	fi
+	echo "$value" > /sys/module/ath11k/parameters/nss_offload 2>/dev/null || true
+}
+
+has_wireless_config() {
+	[ -f /etc/config/wireless ] || return 1
+	uci -q show wireless 2>/dev/null | grep -q '=wifi-device'
+}
+
+has_wifi_driver() {
+	local phy
+
+	for phy in /sys/class/ieee80211/*; do
+		[ -e "$phy" ] && return 0
+	done
+	command -v iw >/dev/null 2>&1 || return 1
+	iw phy >/dev/null 2>&1
+}
+
+has_wireless_config || has_wifi_driver || exit 0
+
+if [ "$(uci -q get mesh_ac.main.local_member 2>/dev/null)" = "1" ]; then
+	set_ath11k_nss_offload 0
+else
+	set_ath11k_nss_offload 1
+fi
+
+exit 0

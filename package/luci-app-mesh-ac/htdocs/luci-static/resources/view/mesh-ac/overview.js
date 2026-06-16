@@ -27,6 +27,7 @@ function modeLabel(mode) {
 }
 
 function renderStatus(status) {
+	var capabilities = status.capabilities || {};
 	var network = status.network || {};
 	var wifi = status.wifi || {};
 	var actualMode = network.mode || 'unknown';
@@ -37,11 +38,15 @@ function renderStatus(status) {
 		[ _('LAN protocol'), network.lan_proto || _('Unknown') ],
 		[ _('LAN IP'), network.lan_ip || '-' ],
 		[ _('LAN DHCP'), network.dhcp_enabled ? _('Enabled') : _('Disabled') ],
-		[ _('WAN in bridge'), network.wan_bridged ? _('Yes') : _('No') ],
-		[ _('2.4 GHz SSID'), wifi.ssid_2g || '-' ],
-		[ _('5 GHz SSID'), wifi.ssid_5g || '-' ],
-		[ _('Backhaul Mesh ID'), wifi.mesh_id || '-' ]
+		[ _('WAN in bridge'), network.wan_bridged ? _('Yes') : _('No') ]
 	];
+	if (capabilities.local_member) {
+		rows.push(
+			[ _('2.4 GHz SSID'), wifi.ssid_2g || '-' ],
+			[ _('5 GHz SSID'), wifi.ssid_5g || '-' ],
+			[ _('Backhaul Mesh ID'), wifi.mesh_id || '-' ]
+		);
+	}
 	var tableRows = rows.map(function(row) {
 		return E('tr', {}, [ E('td', {}, row[0]), E('td', {}, row[1]) ]);
 	});
@@ -96,6 +101,8 @@ return view.extend({
 		var m, s, o;
 		var nodes = (data[0].stdout || '').trim().split(/\n+/).filter(Boolean);
 		var status = parseJson(data[1].stdout, {});
+		var capabilities = status.capabilities || {};
+		var localMemberSupported = !!capabilities.local_member;
 		var activeMode = status.network && status.network.mode;
 		var legacySsid = uci.get('mesh_ac', 'main', 'ssid') || 'OpenWrt-Mesh';
 
@@ -107,20 +114,22 @@ return view.extend({
 		o.default = '1';
 		o = s.option(form.Flag, 'pairing_enabled', _('Allow pairing'));
 		o.default = '1';
-		o = s.option(form.Flag, 'local_member', _('Enable AC local mesh member'));
-		o.default = '0';
-		o = s.option(form.ListValue, 'network_mode', _('Network mode'));
-		o.value('bridge', _('Bridge'));
-		o.value('gateway', _('Gateway'));
-		o.default = 'bridge';
-		o.cfgvalue = function(section_id) {
-			if (activeMode === 'bridge' || activeMode === 'gateway')
-				return activeMode;
-			return uci.get('mesh_ac', section_id, 'network_mode') || 'bridge';
-		};
-		o = s.option(form.Value, 'network_cidr', _('Gateway LAN CIDR'));
-		o.default = '192.168.50.0/24';
-		o.depends('network_mode', 'gateway');
+		if (localMemberSupported) {
+			o = s.option(form.Flag, 'local_member', _('Enable AC local mesh member'));
+			o.default = '0';
+			o = s.option(form.ListValue, 'network_mode', _('Network mode'));
+			o.value('bridge', _('Bridge'));
+			o.value('gateway', _('Gateway'));
+			o.default = 'bridge';
+			o.cfgvalue = function(section_id) {
+				if (activeMode === 'bridge' || activeMode === 'gateway')
+					return activeMode;
+				return uci.get('mesh_ac', section_id, 'network_mode') || 'bridge';
+			};
+			o = s.option(form.Value, 'network_cidr', _('Gateway LAN CIDR'));
+			o.default = '192.168.50.0/24';
+			o.depends('network_mode', 'gateway');
+		}
 
 		o = s.option(form.Value, 'ssid_2g', _('2.4 GHz client SSID'));
 		o.default = legacySsid;
@@ -192,7 +201,12 @@ return view.extend({
 		}, this);
 
 		return m.render().then(function(mapEl) {
-			return E([], [ renderStatus(status), mapEl, table ]);
+			var children = [];
+
+			if (localMemberSupported)
+				children.push(renderStatus(status));
+			children.push(mapEl, table);
+			return E([], children);
 		});
 	}
 });

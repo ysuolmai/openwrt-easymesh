@@ -19,6 +19,7 @@ CONFIG_LUCI_LANG_zh_Hans=y
 CONFIG_PACKAGE_luci-theme-bootstrap=n
 CONFIG_PACKAGE_luci-theme-shadcn=y
 CONFIG_PACKAGE_mesh-ac=y
+CONFIG_PACKAGE_mesh-ac-local-member=y
 CONFIG_PACKAGE_luci-app-mesh-ac=y
 
 

@@ -61,6 +61,30 @@ radio_value() {
 	uci_get "wireless.$radio.$key" ""
 }
 
+has_wireless_config() {
+	[ -f /etc/config/wireless ] || return 1
+	uci -q show wireless 2>/dev/null | grep -q '=wifi-device'
+}
+
+has_wifi_driver() {
+	local phy
+
+	for phy in /sys/class/ieee80211/*; do
+		[ -e "$phy" ] && return 0
+	done
+	command -v iw >/dev/null 2>&1 || return 1
+	iw phy >/dev/null 2>&1
+}
+
+local_wifi=0
+if has_wireless_config || has_wifi_driver; then
+	local_wifi=1
+fi
+local_member_supported=0
+if [ "$local_wifi" = "1" ] && [ -x /usr/sbin/mesh-ac-apply-local ]; then
+	local_member_supported=1
+fi
+
 BRIDGE_SECTION=""
 config_load network
 config_foreach find_bridge_section device
@@ -93,6 +117,11 @@ elif [ "$lan_proto" = "static" ] && [ "$wan_bridged" != "1" ]; then
 fi
 
 json_init
+
+json_add_object capabilities
+json_add_boolean local_wifi "$(bool_json "$local_wifi")"
+json_add_boolean local_member "$(bool_json "$local_member_supported")"
+json_close_object
 
 json_add_object network
 json_add_string mode "$mode"
