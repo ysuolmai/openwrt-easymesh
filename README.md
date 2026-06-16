@@ -34,7 +34,7 @@ AC 的 `Network mode` 控制本机网络角色：`Bridge` 模式下 WAN、LAN、
 
 ## 组件
 
-### `mesh-ac`
+### `easymesh-controller`
 
 运行在 AC 设备上：
 
@@ -44,7 +44,7 @@ AC 的 `Network mode` 控制本机网络角色：`Bridge` 模式下 WAN、LAN、
 - 通过 `Allow pairing` 控制新 AP 注册
 - 通过 CGI API 下发 AP 配置
 
-### `mesh-ac-local-member`
+### `easymesh-local-member`
 
 可选包，适合有 Wi-Fi 的 AC：
 
@@ -54,7 +54,7 @@ AC 的 `Network mode` 控制本机网络角色：`Bridge` 模式下 WAN、LAN、
 - `local_member=1` 时关闭 ath11k NSS offload，并应用 AC 本机 Wi-Fi / 802.11s / batman 配置；如果 ath11k 模块已加载，会自动安排一次重启让模块参数生效
 - IPQ AP 固件在 rootfs 中直接预置 `ath11k nss_offload=0 frame_mode=2`，避免首刷后依赖 uci-defaults 抢在驱动加载前修改参数
 
-### `luci-app-mesh-ac`
+### `luci-app-easymesh`
 
 AC 的 LuCI 管理页面：
 
@@ -63,7 +63,7 @@ AC 的 LuCI 管理页面：
 - 配置 802.11k/v/r
 - 配置 DAWN 开关
 - 查看 AP 在线状态和最后上报时间
-- 有本机 Wi-Fi 和 `mesh-ac-local-member` 时，显示 AC 本地 Mesh 成员模式，表单优先读取本机实际生效配置
+- 有本机 Wi-Fi 和 `easymesh-local-member` 时，显示 AC 本地 Mesh 成员模式，表单优先读取本机实际生效配置
 - no-wifi / controller-only 固件中，页面只显示纯 AC 控制器配置和 AP 列表
 
 页面路径：
@@ -72,7 +72,7 @@ AC 的 LuCI 管理页面：
 Services -> EasyMesh
 ```
 
-### `mesh-agent`
+### `easymesh-agent`
 
 运行在 AP 设备上：
 
@@ -144,7 +144,7 @@ workflow 参考上游 OpenWRT-CI 启用构建缓存：非 `test_config_only` 构
 - `wpad-openssl`
 - `batman-adv` / `batctl`
 - DAWN / uMDNS
-- LuCI AC 应用、自研 `mesh-ac` / `mesh-ac-local-member` / `mesh-agent`、shadcn LuCI 主题
+- LuCI AC 应用、自研 `easymesh-controller` / `easymesh-local-member` / `easymesh-agent`、shadcn LuCI 主题
 
 IPQ 编译：
 
@@ -219,13 +219,13 @@ Country
 2.4 GHz channel
 ```
 
-页面打开时，表单字段会优先读取设备当前实际生效的网络和 Wi-Fi 状态；如果某项没有实时状态可读，就回退到 `/etc/config/mesh_ac` 里的保存值，避免页面显示旧值。
+页面打开时，表单字段会优先读取设备当前实际生效的网络和 Wi-Fi 状态；如果某项没有实时状态可读，就回退到 `/etc/config/easymesh` 里的保存值，避免页面显示旧值。
 
 `Network mode` 默认是 `Bridge`：AC 的 WAN/LAN、客户端 Wi-Fi 和 Mesh 回程会处在同一个二层 LAN，客户端地址来自上游 DHCP。如果 AC 要作为主路由提供 DHCP/NAT，改成 `Gateway`。
 
-当前 AC 固件包含 `mesh-ac-local-member`。点击 LuCI 底部 `Save & Apply` 后，如果机器有本机 Wi-Fi，AC 会按 `Network mode` 应用 WAN/LAN 桥接或网关网络。`Enable AC local mesh member` 默认关闭，此时 AC 保持 ath11k NSS offload 开启；如果这台 AC 本身也要发 Wi-Fi / 加入 Mesh，再打开该选项，应用时会关闭 ath11k NSS offload；如果 ath11k 模块已加载，会自动重启一次，重启后继续应用本机 Mesh 配置，并清理默认 `ImmortalWrt` 等 LAN AP SSID，按 2.4 GHz / 5 GHz 各自的 SSID 创建客户端 Wi-Fi、802.11s 回程、`batman-adv` 和 DAWN 配置。
+当前 AC 固件包含 `easymesh-local-member`。点击 LuCI 底部 `Save & Apply` 后，如果机器有本机 Wi-Fi，AC 会按 `Network mode` 应用 WAN/LAN 桥接或网关网络。`Enable AC local mesh member` 默认关闭，此时 AC 保持 ath11k NSS offload 开启；如果这台 AC 本身也要发 Wi-Fi / 加入 Mesh，再打开该选项，应用时会关闭 ath11k NSS offload；如果 ath11k 模块已加载，会自动重启一次，重启后继续应用本机 Mesh 配置，并清理默认 `ImmortalWrt` 等 LAN AP SSID，按 2.4 GHz / 5 GHz 各自的 SSID 创建客户端 Wi-Fi、802.11s 回程、`batman-adv` 和 DAWN 配置。
 
-如果在其他 no-wifi 编译项目中只安装 `mesh-ac` + `luci-app-mesh-ac`，它就是纯 AC 控制器插件，不依赖 Wi-Fi / `mesh-agent` / `batman-adv`，LuCI 也不会显示本机 Mesh 成员相关界面。
+如果在其他 no-wifi 编译项目中只安装 `easymesh-controller` + `luci-app-easymesh`，它就是纯 AC 控制器插件，不依赖 Wi-Fi / `easymesh-agent` / `batman-adv`，LuCI 也不会显示本机 Mesh 成员相关界面。
 
 ## 作为插件加入其他编译项目
 
@@ -244,8 +244,8 @@ cp -R /tmp/openwrt-easymesh/package/. package/openwrt-easymesh/
 纯 AC 控制器，适合无 Wi-Fi 硬件、no-wifi 固件、软路由或旁路 AC：
 
 ```text
-CONFIG_PACKAGE_mesh-ac=y
-CONFIG_PACKAGE_luci-app-mesh-ac=y
+CONFIG_PACKAGE_easymesh-controller=y
+CONFIG_PACKAGE_luci-app-easymesh=y
 CONFIG_PACKAGE_umdns=y
 CONFIG_PACKAGE_luci=y
 CONFIG_PACKAGE_luci-ssl=y
@@ -254,10 +254,10 @@ CONFIG_PACKAGE_luci-ssl=y
 Full AC，适合 AC 本机也有 Wi-Fi、可能作为 Mesh 成员加入回程：
 
 ```text
-CONFIG_PACKAGE_mesh-ac=y
-CONFIG_PACKAGE_mesh-ac-local-member=y
-CONFIG_PACKAGE_luci-app-mesh-ac=y
-CONFIG_PACKAGE_mesh-agent=y
+CONFIG_PACKAGE_easymesh-controller=y
+CONFIG_PACKAGE_easymesh-local-member=y
+CONFIG_PACKAGE_luci-app-easymesh=y
+CONFIG_PACKAGE_easymesh-agent=y
 CONFIG_PACKAGE_wpad-openssl=y
 CONFIG_PACKAGE_kmod-batman-adv=y
 CONFIG_PACKAGE_batctl-default=y
@@ -271,7 +271,7 @@ CONFIG_PACKAGE_luci-ssl=y
 托管 AP 固件需要：
 
 ```text
-CONFIG_PACKAGE_mesh-agent=y
+CONFIG_PACKAGE_easymesh-agent=y
 CONFIG_PACKAGE_wpad-openssl=y
 CONFIG_PACKAGE_kmod-batman-adv=y
 CONFIG_PACKAGE_batctl-default=y
@@ -293,7 +293,7 @@ CONFIG_PACKAGE_luci-theme-bootstrap=n
 CONFIG_PACKAGE_luci-theme-shadcn=y
 ```
 
-`luci-app-mesh-ac` 是同一套页面。它会通过 `/usr/sbin/mesh-ac-status` 自动检测本机是否有 Wi-Fi 驱动或 `/etc/config/wireless`，以及是否安装了 `mesh-ac-local-member`：检测不到时就是纯 AC 界面；检测到时才显示 `Enable AC local mesh member`、`Network mode` ，并优先读取本机实际生效配置。
+`luci-app-easymesh` 是同一套页面。它会通过 `/usr/sbin/easymesh-status` 自动检测本机是否有 Wi-Fi 驱动或 `/etc/config/wireless`，以及是否安装了 `easymesh-local-member`：检测不到时就是纯 AC 界面；检测到时才显示 `Enable AC local mesh member`、`Network mode` ，并优先读取本机实际生效配置。
 
 ### 2. 刷 AP 固件
 
@@ -309,20 +309,20 @@ AP 固件首次启动会先进入安全的桥接接入状态：关闭本机 LAN 
 AP 默认通过 mDNS 自动发现 AC,无需手动配置地址，也不需要单独设置配对 token。发现顺序:
 
 1. 显式配置的 `ac_url`(若可达)
-2. AC 通过 umdns 广播的 `_mesh-ac._tcp` 服务
+2. AC 通过 umdns 广播的 `_easymesh._tcp` 服务
 3. 默认网关(AC 兼作主路由时)
 4. 上次成功连接的缓存地址
-5. 兜底地址 `http://192.168.50.1/cgi-bin/mesh-ac`
+5. 兜底地址 `http://192.168.50.1/cgi-bin/easymesh`
 
 如果要把 AP 固定到某台 AC,可手动指定:
 
 ```sh
-uci set mesh_agent.main.ac_url='http://AC_IP/cgi-bin/mesh-ac'
-uci commit mesh_agent
-/etc/init.d/mesh-agent restart
+uci set easymesh_agent.main.ac_url='http://AC_IP/cgi-bin/easymesh'
+uci commit easymesh_agent
+/etc/init.d/easymesh-agent restart
 ```
 
-只想用静态地址、关闭自动发现,可设 `uci set mesh_agent.main.ac_discovery='static'`。
+只想用静态地址、关闭自动发现,可设 `uci set easymesh_agent.main.ac_discovery='static'`。
 
 ### 3. 有线配对
 
@@ -359,10 +359,10 @@ v0.1 还是脚手架，重点是先把 AC/AP 架构跑通：
 
 ```text
 configs/                 OpenWrt 构建配置
-package/mesh-ac/         AC 服务
-package/mesh-ac-local-member/ AC 本机 Mesh 成员可选包
-package/mesh-agent/      AP agent
-package/luci-app-mesh-ac LuCI 管理页面
+package/easymesh-controller/         AC 服务
+package/easymesh-local-member/ AC 本机 Mesh 成员可选包
+package/easymesh-agent/      AP agent
+package/luci-app-easymesh LuCI 管理页面
 scripts/                 构建准备脚本
 .github/workflows/       GitHub Actions 编译流程
 docs/                    设计说明
@@ -370,11 +370,17 @@ docs/                    设计说明
 
 ## 状态
 
-当前仓库是第一版 MVP。下一步优先事项：
+当前已经进入真机调试阶段：
 
-1. 跑完整 AC/AP 固件编译
-2. 跑 MT7981 config-only workflow 并做真机验证
-3. 两台 IPQ60XX 真机做有线配对测试
-4. 验证 AC 本地 Mesh 成员模式
-5. 验证拔线后的无线回程
-6. 加入 wired-first / wireless-fallback watchdog
+1. 项目和 OpenWrt 包已统一为 EasyMesh 命名体系，不保留历史包名兼容。
+2. IPQ60XX / MT7981 的 AC、AP 构建配置都已接入新的 `easymesh-*` 包名。
+3. AC / AP 支持桥接接入，WAN/LAN 可作为同一二层入口使用。
+4. AC 可作为纯控制器，也可在有 Wi-Fi 时启用本地 Mesh 成员。
+5. AP 支持 mDNS 自动发现 AC、拉取配置、应用 2.4 GHz / 5 GHz 独立 SSID、802.11s 回程、batman-adv 和 DAWN。
+
+仍需继续验证：
+
+1. 最新 rename 后的完整 GitHub Actions 编译。
+2. IPQ60XX / MT7981 真机上的无线回程稳定性。
+3. 有线优先策略，计划改为 batman hardif + hop penalty，而不是外部 watchdog 强切无线。
+4. 拓扑、链路质量和更完整的在线状态展示。

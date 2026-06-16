@@ -128,10 +128,10 @@ require_mt7981_target() {
 require_ac_packages() {
 	require_symbol CONFIG_PACKAGE_luci
 	require_symbol CONFIG_PACKAGE_luci-ssl
-	require_symbol CONFIG_PACKAGE_mesh-ac
-	require_symbol CONFIG_PACKAGE_mesh-ac-local-member
-	require_symbol CONFIG_PACKAGE_mesh-agent
-	require_symbol CONFIG_PACKAGE_luci-app-mesh-ac
+	require_symbol CONFIG_PACKAGE_easymesh-controller
+	require_symbol CONFIG_PACKAGE_easymesh-local-member
+	require_symbol CONFIG_PACKAGE_easymesh-agent
+	require_symbol CONFIG_PACKAGE_luci-app-easymesh
 	require_symbol CONFIG_PACKAGE_luci-theme-shadcn
 	require_symbol CONFIG_PACKAGE_luci-app-dawn
 	require_symbol CONFIG_PACKAGE_jshn
@@ -142,7 +142,7 @@ require_ap_packages() {
 	require_symbol CONFIG_PACKAGE_luci
 	require_symbol CONFIG_PACKAGE_luci-ssl
 	require_symbol CONFIG_PACKAGE_luci-theme-shadcn
-	require_symbol CONFIG_PACKAGE_mesh-agent
+	require_symbol CONFIG_PACKAGE_easymesh-agent
 }
 
 require_ipq_ap_rootfs_overrides() {

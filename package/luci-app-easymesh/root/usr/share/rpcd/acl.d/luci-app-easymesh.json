@@ -1,0 +1,16 @@
+{
+	"luci-app-easymesh": {
+		"description": "Grant access to EasyMesh configuration",
+		"read": {
+			"uci": [ "easymesh" ],
+			"file": {
+				"/etc/easymesh/nodes/*.json": [ "read" ],
+				"/usr/sbin/easymesh-list": [ "exec" ],
+				"/usr/sbin/easymesh-status": [ "exec" ]
+			}
+		},
+		"write": {
+			"uci": [ "easymesh" ]
+		}
+	}
+}

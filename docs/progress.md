@@ -15,31 +15,31 @@ Current direction:
 
 - This is an AC + managed AP firmware project, not a decentralized per-router mesh plugin.
 - AC owns the LuCI UI, global Wi-Fi/backhaul config, new-AP pairing gate, and config rendering.
-- AP firmware includes LuCI with the shadcn theme for local access, but no EasyMesh management app; it runs `mesh-agent`.
+- AP firmware includes LuCI with the shadcn theme for local access, but no EasyMesh management app; it runs `easymesh-agent`.
 - AP first boot enters a safe bridge-only state: local DHCP is disabled, WAN/LAN are treated as the same L2 access side, and default OpenWrt/ImmortalWrt LAN AP SSIDs are removed.
 - When `pairing_enabled=1`, a new AP registers and immediately pulls config from AC, creating client AP SSIDs plus 802.11s backhaul.
 - When `pairing_enabled=0`, unknown APs cannot register; known APs can keep updating `last_seen` and pulling config.
 - AC can run in `Bridge` mode or `Gateway` mode. AP always behaves as a bridge node.
-- `mesh-ac` can run as a controller-only plugin on no-wifi hardware. `mesh-ac-local-member` adds AC local mesh support for Wi-Fi hardware.
+- `easymesh-controller` can run as a controller-only plugin on no-wifi hardware. `easymesh-local-member` adds AC local mesh support for Wi-Fi hardware.
 - IPQ managed AP images include `/etc/modules.d/ath11k` with `nss_offload=0` in the rootfs, so the module starts in mesh-compatible mode on first boot.
 - AC defaults to controller/router-only mode with ath11k NSS offload enabled. When `local_member=1` and local Wi-Fi is detected, AC becomes a local mesh member and ath11k NSS offload is disabled; if ath11k is already loaded, the firmware schedules one reboot and resumes local apply after boot.
 
 Latest implemented behavior:
 
-- LuCI EasyMesh page now initializes form fields from real system UCI state, not just `/etc/config/mesh_ac` desired values.
+- LuCI EasyMesh page now initializes form fields from real system UCI state, not just `/etc/config/easymesh` desired values.
 - `Network mode` selector is initialized from actual active state when the device is clearly in bridge/gateway mode, so it should not show stale `bridge` while the box is actually still gateway.
 - 2.4 GHz and 5 GHz client SSIDs are now separate fields: `ssid_2g` and `ssid_5g`.
 - Legacy `ssid` remains as fallback for upgrades.
 - 2.4 GHz / 5 GHz channel and htmode are LuCI dropdowns instead of free text.
 - AC JSON config and AP apply logic both support split-band SSIDs.
-- New read-only helper: `/usr/sbin/mesh-ac-status`.
+- New read-only helper: `/usr/sbin/easymesh-status`.
 - Managed APs now use automatic registration. LuCI shows online/offline and last seen time.
 - AP agent skips reapplying an unchanged AC config only after local wireless state matches the desired mesh SSIDs/backhaul; stale or partially applied local state is repaired automatically.
 - MT7981 radio detection now trusts explicit `band` first and no longer treats all `HE*` radios as 5 GHz, so 2.4 GHz 802.11ax radios keep the 2.4 GHz channel/htmode.
 - 802.11s mesh backhaul is attached to `batman-adv` by real mesh interface name, not by the UCI alias `@mesh_backhaul`.
 - AP images now include LuCI and `ysuolmai/luci-theme-shadcn`, matching AC theme source.
 - Workflow release files are prefixed with the config target, for example `IPQ60XX-MESH-AC-*` and `IPQ60XX-MESH-AP-*`.
-- LuCI uses runtime Wi-Fi detection from `mesh-ac-status`: no-wifi/controller-only AC hides local mesh member controls and active local Wi-Fi state.
+- LuCI uses runtime Wi-Fi detection from `easymesh-status`: no-wifi/controller-only AC hides local mesh member controls and active local Wi-Fi state.
 
 Recent commits:
 
@@ -57,9 +57,9 @@ b681b1a Use named wireless sections
 Validation run locally for latest commit:
 
 ```sh
-sh -n package/mesh-ac-local-member/files/usr/sbin/mesh-ac-apply-local package/mesh-ac/files/usr/sbin/mesh-ac-status package/mesh-ac/files/www/cgi-bin/mesh-ac package/mesh-agent/files/usr/sbin/mesh-agent-apply
-node --check package/luci-app-mesh-ac/htdocs/luci-static/resources/view/mesh-ac/overview.js
-python3 -m json.tool package/luci-app-mesh-ac/root/usr/share/rpcd/acl.d/luci-app-mesh-ac.json
+sh -n package/easymesh-local-member/files/usr/sbin/easymesh-apply-local package/easymesh-controller/files/usr/sbin/easymesh-status package/easymesh-controller/files/www/cgi-bin/easymesh package/easymesh-agent/files/usr/sbin/easymesh-agent-apply
+node --check package/luci-app-easymesh/htdocs/luci-static/resources/view/easymesh/overview.js
+python3 -m json.tool package/luci-app-easymesh/root/usr/share/rpcd/acl.d/luci-app-easymesh.json
 git diff --check
 ```
 
@@ -79,14 +79,14 @@ Short answer:
 Expected AP phases:
 
 1. Fresh AP boot before config:
-   - uci-defaults runs `/usr/sbin/mesh-agent-apply --network-only`.
+   - uci-defaults runs `/usr/sbin/easymesh-agent-apply --network-only`.
    - Default LAN AP SSIDs are deleted.
    - LAN DHCP is disabled.
    - WAN/LAN are bridged for safe access.
    - `Network -> Wireless` may show no client SSID. This is normal.
 
 2. Unknown AP while pairing is disabled:
-   - `mesh-agent` keeps trying to register.
+   - `easymesh-agent` keeps trying to register.
    - AC returns `pairing-disabled`.
    - AP should still not advertise client SSIDs.
 
@@ -98,13 +98,13 @@ Expected AP phases:
 Commands to run on the AP while directly connected:
 
 ```sh
-logread | grep mesh-agent
-/etc/init.d/mesh-agent status
-uci show mesh_agent
+logread | grep easymesh-agent
+/etc/init.d/easymesh-agent status
+uci show easymesh_agent
 uci show wireless | grep -E 'mesh_ap|mesh_backhaul|ssid|mesh_id|device|mode|disabled'
 uci show network | grep -E 'lan|wan|br_lan|bat0|batmesh'
-cat /etc/mesh-agent/config.json 2>/dev/null
-cat /etc/mesh-agent/ac_url 2>/dev/null
+cat /etc/easymesh-agent/config.json 2>/dev/null
+cat /etc/easymesh-agent/ac_url 2>/dev/null
 ```
 
 Useful connectivity checks from AP:
@@ -112,22 +112,22 @@ Useful connectivity checks from AP:
 ```sh
 ip route
 ubus call umdns browse
-curl -fsS http://172.28.1.114/cgi-bin/mesh-ac
+curl -fsS http://172.28.1.114/cgi-bin/easymesh
 ```
 
 If AC is not discovered automatically, pin it temporarily on AP:
 
 ```sh
-uci set mesh_agent.main.ac_url='http://172.28.1.114/cgi-bin/mesh-ac'
-uci set mesh_agent.main.ac_discovery='static'
-uci commit mesh_agent
-/etc/init.d/mesh-agent restart
+uci set easymesh_agent.main.ac_url='http://172.28.1.114/cgi-bin/easymesh'
+uci set easymesh_agent.main.ac_discovery='static'
+uci commit easymesh_agent
+/etc/init.d/easymesh-agent restart
 ```
 
-After registration, force one local apply cycle on AP if `/etc/mesh-agent/config.json` exists:
+After registration, force one local apply cycle on AP if `/etc/easymesh-agent/config.json` exists:
 
 ```sh
-/usr/sbin/mesh-agent-apply /etc/mesh-agent/config.json
+/usr/sbin/easymesh-agent-apply /etc/easymesh-agent/config.json
 wifi reload
 ```
 
@@ -141,13 +141,13 @@ What to look for:
 ## Current Files To Inspect First
 
 ```text
-package/mesh-agent/files/etc/uci-defaults/90-mesh-agent-enable
-package/mesh-agent/files/usr/sbin/mesh-agent
-package/mesh-agent/files/usr/sbin/mesh-agent-apply
-package/mesh-ac/files/www/cgi-bin/mesh-ac
-package/mesh-ac/files/usr/sbin/mesh-ac-status
-package/mesh-ac-local-member/files/usr/sbin/mesh-ac-apply-local
-package/luci-app-mesh-ac/htdocs/luci-static/resources/view/mesh-ac/overview.js
+package/easymesh-agent/files/etc/uci-defaults/90-easymesh-agent-enable
+package/easymesh-agent/files/usr/sbin/easymesh-agent
+package/easymesh-agent/files/usr/sbin/easymesh-agent-apply
+package/easymesh-controller/files/www/cgi-bin/easymesh
+package/easymesh-controller/files/usr/sbin/easymesh-status
+package/easymesh-local-member/files/usr/sbin/easymesh-apply-local
+package/luci-app-easymesh/htdocs/luci-static/resources/view/easymesh/overview.js
 ```
 
 ## Goal
@@ -188,65 +188,65 @@ Important design decision:
 
 ## Implemented Packages
 
-### `mesh-ac`
+### `easymesh-controller`
 
-Path: `package/mesh-ac/`
+Path: `package/easymesh-controller/`
 
 Provides:
 
-- `/etc/config/mesh_ac`
-- `/etc/init.d/mesh-ac`
-- `/www/cgi-bin/mesh-ac`
-- `/usr/sbin/mesh-ac-list`
-- `/usr/sbin/mesh-ac-status`
+- `/etc/config/easymesh`
+- `/etc/init.d/easymesh-controller`
+- `/www/cgi-bin/easymesh`
+- `/usr/sbin/easymesh-list`
+- `/usr/sbin/easymesh-status`
 
 Current behavior:
 
 - Stores global SSID, mesh backhaul, KVR and DAWN settings.
-- Receives AP registration through CGI endpoint `/cgi-bin/mesh-ac/register`.
-- Stores one JSON file per AP under `/etc/mesh-ac/nodes/`.
+- Receives AP registration through CGI endpoint `/cgi-bin/easymesh/register`.
+- Stores one JSON file per AP under `/etc/easymesh/nodes/`.
 - New APs are accepted automatically while `pairing_enabled=1`.
 - When `pairing_enabled=0`, unknown APs are rejected and known APs can continue to update `last_seen`.
-- Known APs can fetch rendered config through `/cgi-bin/mesh-ac/config`.
-- Does not depend on Wi-Fi, `mesh-agent`, `batman-adv`, or DAWN. This package can be reused as a no-wifi/controller-only AC plugin.
+- Known APs can fetch rendered config through `/cgi-bin/easymesh/config`.
+- Does not depend on Wi-Fi, `easymesh-agent`, `batman-adv`, or DAWN. This package can be reused as a no-wifi/controller-only AC plugin.
 
 Security status:
 
 - Home-use pairing is tokenless: `pairing_enabled=1` allows new AP registration, while known APs can continue to fetch config after pairing is disabled.
 - Future improvement can add a timed pairing window or per-AP credentials if stronger security is needed.
 
-### `mesh-ac-local-member`
+### `easymesh-local-member`
 
-Path: `package/mesh-ac-local-member/`
+Path: `package/easymesh-local-member/`
 
 Provides:
 
-- `/usr/sbin/mesh-ac-apply-local`
-- `/etc/uci-defaults/91-mesh-ac-local-member-enable`
+- `/usr/sbin/easymesh-apply-local`
+- `/etc/uci-defaults/91-easymesh-local-member-enable`
 
 Current behavior:
 
 - Optional add-on for AC hardware with local Wi-Fi.
-- Depends on `mesh-agent`, so it can reuse the same apply helper as APs.
+- Depends on `easymesh-agent`, so it can reuse the same apply helper as APs.
 - Detects local Wi-Fi by checking `/etc/config/wireless`, `/sys/class/ieee80211`, or `iw phy`.
 - Skips local apply on no-wifi hardware even if installed.
 - Keeps ath11k NSS offload enabled while `local_member=0`; disables it while `local_member=1`, scheduling one reboot if ath11k was already loaded.
 
-### `mesh-agent`
+### `easymesh-agent`
 
-Path: `package/mesh-agent/`
+Path: `package/easymesh-agent/`
 
 Provides:
 
-- `/etc/config/mesh_agent`
-- `/etc/init.d/mesh-agent`
-- `/usr/sbin/mesh-agent`
-- `/usr/sbin/mesh-agent-apply`
+- `/etc/config/easymesh_agent`
+- `/etc/init.d/easymesh-agent`
+- `/usr/sbin/easymesh-agent`
+- `/usr/sbin/easymesh-agent-apply`
 
 Current behavior:
 
 - Registers to configured AC URL.
-- Default AC URL is `http://192.168.50.1/cgi-bin/mesh-ac`.
+- Default AC URL is `http://192.168.50.1/cgi-bin/easymesh`.
 - Pulls AC config after registration.
 - Applies OpenWrt UCI settings for:
   - 2.4 GHz / 5 GHz client AP SSID
@@ -255,16 +255,16 @@ Current behavior:
   - `batman-adv`
   - DAWN
 - Supports `--preserve-lan` for AC local mesh member mode.
-- The normal `mesh-agent` procd service is disabled on AC images when `/etc/config/mesh_ac` exists.
+- The normal `easymesh-agent` procd service is disabled on AC images when `/etc/config/easymesh` exists.
 
 Known limitation:
 
 - AC auto-discovery now uses mDNS with gateway/default fallback (see "AC discovery" below).
-- AP can still pin a specific AC by setting `mesh_agent.main.ac_url`.
+- AP can still pin a specific AC by setting `easymesh_agent.main.ac_url`.
 
-### `luci-app-mesh-ac`
+### `luci-app-easymesh`
 
-Path: `package/luci-app-mesh-ac/`
+Path: `package/luci-app-easymesh/`
 
 Provides LuCI page:
 
@@ -345,7 +345,7 @@ Current behavior:
   - `test_config_only`
 - Default source repo is `https://github.com/VIKINGYFY/immortalwrt.git`.
 - AC and AP images clone `ysuolmai/luci-theme-shadcn` during prepare and select `CONFIG_PACKAGE_luci-theme-shadcn=y`.
-- This repo's AC targets select `mesh-ac-local-member` for full AC behavior. Other projects can select only `mesh-ac` + `luci-app-mesh-ac` for a no-wifi/controller-only AC plugin.
+- This repo's AC targets select `easymesh-local-member` for full AC behavior. Other projects can select only `easymesh-controller` + `luci-app-easymesh` for a no-wifi/controller-only AC plugin.
 - Build cache is enabled for non-config-only runs, following upstream OpenWRT-CI: `.ccache`, `staging_dir/host*`, and `staging_dir/tool*` are cached and toolchain stamp files are refreshed after restore.
 - `config_name` manual selection was removed.
 - After `make defconfig`, workflow runs `scripts/check-openwrt-config.sh` to verify required device profiles, Wi-Fi driver/firmware symbols, source-side support files, KVR-capable `wpad-openssl`, DAWN, uMDNS, `batman-adv`, and the shadcn LuCI theme on AC/AP images.
@@ -379,13 +379,13 @@ User asked whether the AC itself can also be a mesh member if the AC hardware ha
 
 Implemented design:
 
-- `/etc/config/mesh_ac` has `option local_member '0'` by default.
-- LuCI shows `Enable AC local mesh member` only when local Wi-Fi is detected and `/usr/sbin/mesh-ac-apply-local` is installed.
-- `/usr/sbin/mesh-ac-apply-local` renders AC config into the same JSON structure used by managed APs.
-- It calls `/usr/sbin/mesh-agent-apply --local-ac /tmp/mesh-ac-local-config.json` when local member mode is enabled.
-- `mesh-agent-apply --local-ac` applies Wi-Fi APs, 802.11s backhaul, `batman-adv`, and DAWN while preserving AC LAN/WAN/DHCP/firewall behavior. It removes existing LAN AP Wi-Fi interfaces such as the default `ImmortalWrt` SSID so the AC only advertises the configured mesh client SSID.
+- `/etc/config/easymesh` has `option local_member '0'` by default.
+- LuCI shows `Enable AC local mesh member` only when local Wi-Fi is detected and `/usr/sbin/easymesh-apply-local` is installed.
+- `/usr/sbin/easymesh-apply-local` renders AC config into the same JSON structure used by managed APs.
+- It calls `/usr/sbin/easymesh-agent-apply --local-ac /tmp/easymesh-local-config.json` when local member mode is enabled.
+- `easymesh-agent-apply --local-ac` applies Wi-Fi APs, 802.11s backhaul, `batman-adv`, and DAWN while preserving AC LAN/WAN/DHCP/firewall behavior. It removes existing LAN AP Wi-Fi interfaces such as the default `ImmortalWrt` SSID so the AC only advertises the configured mesh client SSID.
 - Normal managed AP agent service is disabled on AC images so AC does not register to itself as a normal AP.
-- Local mesh member mode is explicit through LuCI or `/usr/sbin/mesh-ac-apply-local`; first boot does not broadcast placeholder Wi-Fi credentials automatically.
+- Local mesh member mode is explicit through LuCI or `/usr/sbin/easymesh-apply-local`; first boot does not broadcast placeholder Wi-Fi credentials automatically.
 - IPQ AP builds write `ath11k nss_offload=0 frame_mode=2` into the image rootfs before build, so AP first boot does not depend on uci-defaults racing the driver load order.
 - AC keeps ath11k NSS offload enabled while `local_member=0`, and disables it while `local_member=1` because ath11k NSS offload breaks 802.11s mesh point interfaces on this target. If the ath11k module was already loaded, the system schedules one reboot so `nss_offload=0` is applied from module load time, then resumes local mesh apply.
 
@@ -398,11 +398,11 @@ AC local member mode must not rewrite network.lan.proto, network.lan.ipaddr, net
 Validation done locally:
 
 ```sh
-bash -n package/mesh-agent/files/usr/sbin/mesh-agent-apply
-bash -n package/mesh-ac-local-member/files/usr/sbin/mesh-ac-apply-local
-bash -n package/mesh-agent/files/etc/init.d/mesh-agent
-bash -n package/mesh-agent/files/etc/uci-defaults/90-mesh-agent-enable
-bash -n package/mesh-ac/files/etc/uci-defaults/90-mesh-ac-enable
+bash -n package/easymesh-agent/files/usr/sbin/easymesh-agent-apply
+bash -n package/easymesh-local-member/files/usr/sbin/easymesh-apply-local
+bash -n package/easymesh-agent/files/etc/init.d/easymesh-agent
+bash -n package/easymesh-agent/files/etc/uci-defaults/90-easymesh-agent-enable
+bash -n package/easymesh-controller/files/etc/uci-defaults/90-easymesh-controller-enable
 bash -n scripts/check-openwrt-config.sh
 git diff --check
 ```
@@ -458,15 +458,15 @@ batman without any external watchdog or deadlock.
 
 AP agents resolve the AC through `ac_discovery` mode (`auto` by default):
 
-1. explicit `mesh_agent.main.ac_url` if set and reachable
-2. mDNS service `_mesh-ac._tcp` advertised by the AC (umdns)
+1. explicit `easymesh_agent.main.ac_url` if set and reachable
+2. mDNS service `_easymesh._tcp` advertised by the AC (umdns)
 3. default-gateway probe (AC acting as router)
-4. last known good URL (cached at `/etc/mesh-agent/ac_url`)
+4. last known good URL (cached at `/etc/easymesh-agent/ac_url`)
 5. hardcoded `192.168.50.1` as final fallback
 
 Each candidate is validated by probing the AC root endpoint for
-`{"service":"mesh-ac"}` before use, and the resolved AC is reused until it
-becomes unreachable. AC side advertises through `/etc/umdns/mesh-ac.json` and
+`{"service":"easymesh"}` before use, and the resolved AC is reused until it
+becomes unreachable. AC side advertises through `/etc/umdns/easymesh.json` and
 enables `umdns` in its uci-defaults.
 
 Possible later improvement:

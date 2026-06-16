@@ -1,0 +1,13 @@
+{
+	"admin/services/easymesh": {
+		"title": "EasyMesh",
+		"action": {
+			"type": "view",
+			"path": "easymesh/overview"
+		},
+		"depends": {
+			"acl": [ "luci-app-easymesh" ],
+			"uci": { "easymesh": true }
+		}
+	}
+}

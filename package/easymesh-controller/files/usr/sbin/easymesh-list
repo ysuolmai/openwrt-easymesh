@@ -1,0 +1,8 @@
+#!/bin/sh
+
+mkdir -p /etc/easymesh/nodes
+for node in /etc/easymesh/nodes/*.json; do
+	[ -f "$node" ] || continue
+	cat "$node"
+	echo
+done

@@ -1,0 +1,26 @@
+#!/bin/sh /etc/rc.common
+
+START=70
+USE_PROCD=1
+
+start_service() {
+	mkdir -p /etc/easymesh/nodes /tmp/easymesh
+	if [ -f /etc/easymesh/pending-local-apply ] && [ -x /usr/sbin/easymesh-apply-local ]; then
+		rm -f /etc/easymesh/pending-local-apply
+		(sleep 15; /usr/sbin/easymesh-apply-local >/dev/null 2>&1 || logger -t easymesh-controller "pending local mesh apply failed") &
+	fi
+	procd_open_instance
+	procd_set_param command /bin/sh -c 'sleep infinity'
+	procd_close_instance
+}
+
+service_triggers() {
+	procd_add_reload_trigger easymesh
+}
+
+reload_service() {
+	if [ -x /usr/sbin/easymesh-apply-local ]; then
+		/usr/sbin/easymesh-apply-local >/dev/null 2>&1 || true
+	fi
+	restart
+}

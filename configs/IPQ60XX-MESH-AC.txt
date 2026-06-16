@@ -18,9 +18,9 @@ CONFIG_PACKAGE_luci-ssl=y
 CONFIG_LUCI_LANG_zh_Hans=y
 CONFIG_PACKAGE_luci-theme-bootstrap=n
 CONFIG_PACKAGE_luci-theme-shadcn=y
-CONFIG_PACKAGE_mesh-ac=y
-CONFIG_PACKAGE_mesh-ac-local-member=y
-CONFIG_PACKAGE_luci-app-mesh-ac=y
+CONFIG_PACKAGE_easymesh-controller=y
+CONFIG_PACKAGE_easymesh-local-member=y
+CONFIG_PACKAGE_luci-app-easymesh=y
 
 
 # Qualcomm Wi-Fi driver and firmware. Device profiles add the matching ipq-wifi-* BDF package.
@@ -37,7 +37,7 @@ CONFIG_PACKAGE_wpad-basic-mbedtls=n
 CONFIG_PACKAGE_wpad-basic-openssl=n
 
 # Optional local AP/agent capability on AC node.
-CONFIG_PACKAGE_mesh-agent=y
+CONFIG_PACKAGE_easymesh-agent=y
 CONFIG_PACKAGE_kmod-batman-adv=y
 CONFIG_PACKAGE_batctl-default=y
 CONFIG_PACKAGE_luci-proto-batman-adv=y

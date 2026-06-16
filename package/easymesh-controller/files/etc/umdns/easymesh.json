@@ -1,0 +1,11 @@
+{
+	"easymesh": {
+		"service": "_easymesh._tcp.local",
+		"port": 80,
+		"txt": [
+			"path=/cgi-bin/easymesh",
+			"role=ac",
+			"version=1"
+		]
+	}
+}
