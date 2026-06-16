@@ -222,6 +222,74 @@ Country
 
 如果在其他 no-wifi 编译项目中只安装 `mesh-ac` + `luci-app-mesh-ac`，它就是纯 AC 控制器插件，不依赖 Wi-Fi / `mesh-agent` / `batman-adv`，LuCI 也不会显示本机 Mesh 成员相关界面。
 
+## 作为插件加入其他编译项目
+
+还是使用这个仓库：`https://github.com/ysuolmai/openwrt-ipq-mesh`。
+
+如果只是想把 AC 管理功能加到其他 OpenWrt / ImmortalWrt 编译项目里，可以把本仓库的 `package/` 目录作为自定义包导入。最简单的做法是在目标源码树里执行：
+
+```sh
+git clone --depth=1 https://github.com/ysuolmai/openwrt-ipq-mesh.git /tmp/openwrt-ipq-mesh
+mkdir -p package/openwrt-ipq-mesh
+cp -R /tmp/openwrt-ipq-mesh/package/. package/openwrt-ipq-mesh/
+```
+
+然后按需要选择包组合。
+
+纯 AC 控制器，适合无 Wi-Fi 硬件、no-wifi 固件、软路由或旁路 AC：
+
+```text
+CONFIG_PACKAGE_mesh-ac=y
+CONFIG_PACKAGE_luci-app-mesh-ac=y
+CONFIG_PACKAGE_umdns=y
+CONFIG_PACKAGE_luci=y
+CONFIG_PACKAGE_luci-ssl=y
+```
+
+Full AC，适合 AC 本机也有 Wi-Fi、可能作为 Mesh 成员加入回程：
+
+```text
+CONFIG_PACKAGE_mesh-ac=y
+CONFIG_PACKAGE_mesh-ac-local-member=y
+CONFIG_PACKAGE_luci-app-mesh-ac=y
+CONFIG_PACKAGE_mesh-agent=y
+CONFIG_PACKAGE_wpad-openssl=y
+CONFIG_PACKAGE_kmod-batman-adv=y
+CONFIG_PACKAGE_batctl-default=y
+CONFIG_PACKAGE_dawn=y
+CONFIG_PACKAGE_umdns=y
+CONFIG_PACKAGE_iw=y
+CONFIG_PACKAGE_luci=y
+CONFIG_PACKAGE_luci-ssl=y
+```
+
+托管 AP 固件需要：
+
+```text
+CONFIG_PACKAGE_mesh-agent=y
+CONFIG_PACKAGE_wpad-openssl=y
+CONFIG_PACKAGE_kmod-batman-adv=y
+CONFIG_PACKAGE_batctl-default=y
+CONFIG_PACKAGE_dawn=y
+CONFIG_PACKAGE_umdns=y
+CONFIG_PACKAGE_iw=y
+```
+
+如果目标项目也想使用同款 shadcn 主题，请使用我的 fork：
+
+```sh
+git clone --depth=1 https://github.com/ysuolmai/luci-theme-shadcn.git package/luci-theme-shadcn
+```
+
+并在配置里启用：
+
+```text
+CONFIG_PACKAGE_luci-theme-bootstrap=n
+CONFIG_PACKAGE_luci-theme-shadcn=y
+```
+
+`luci-app-mesh-ac` 是同一套页面。它会通过 `/usr/sbin/mesh-ac-status` 自动检测本机是否有 Wi-Fi 驱动或 `/etc/config/wireless`，以及是否安装了 `mesh-ac-local-member`：检测不到时就是纯 AC 界面；检测到时才显示 `Enable AC local mesh member`、`Network mode` 和本机 active state。
+
 ### 2. 刷 AP 固件
 
 其他节点刷入对应平台的 AP 固件：
