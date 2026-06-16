@@ -17,14 +17,14 @@ reachable by AP agents during pairing and config pulls.
 
 - store global Wi-Fi, backhaul, KVR and DAWN settings
 - receive AP registration
-- approve APs
+- accept new AP registration while pairing is enabled
 - render AP config as JSON
 - provide LuCI UI
 
 ## AP Agent Responsibilities
 
 - register with AC while pairing is enabled
-- pull config after approval
+- pull config after registration
 - apply OpenWrt UCI wireless/network/DAWN settings
 - keep last config locally
 

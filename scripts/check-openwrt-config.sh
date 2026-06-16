@@ -122,6 +122,9 @@ require_ac_packages() {
 }
 
 require_ap_packages() {
+	require_symbol CONFIG_PACKAGE_luci
+	require_symbol CONFIG_PACKAGE_luci-ssl
+	require_symbol CONFIG_PACKAGE_luci-theme-shadcn
 	require_symbol CONFIG_PACKAGE_mesh-agent
 }
 

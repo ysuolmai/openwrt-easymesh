@@ -10,10 +10,7 @@
 			}
 		},
 		"write": {
-			"uci": [ "mesh_ac" ],
-			"file": {
-				"/usr/sbin/mesh-ac-approve": [ "exec" ]
-			}
+			"uci": [ "mesh_ac" ]
 		}
 	}
 }

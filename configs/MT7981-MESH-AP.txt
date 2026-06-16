@@ -11,6 +11,11 @@ CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_nokia_ea0326gmp=y
 CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_cmcc_rax3000m=y
 
 # Managed AP agent
+CONFIG_PACKAGE_luci=y
+CONFIG_PACKAGE_luci-ssl=y
+CONFIG_LUCI_LANG_zh_Hans=y
+CONFIG_PACKAGE_luci-theme-bootstrap=n
+CONFIG_PACKAGE_luci-theme-shadcn=y
 CONFIG_PACKAGE_mesh-agent=y
 
 # MediaTek Wi-Fi driver and firmware. Device profiles also select these.

@@ -4,7 +4,7 @@
 
 当前目标不是一次性做完整商用 Mesh 系统，而是先做一个可编译、可配对、可下发配置的 MVP：
 
-- AC 负责管理配置、显示 AP、批准配对、下发参数
+- AC 负责管理配置、显示 AP、控制新 AP 配对窗口、下发参数
 - AP 刷入托管固件后自动向 AC 注册
 - 第一次建议通过有线连接完成配对
 - 配对后 AP 保存配置，即使 AC 暂时离线也继续工作
@@ -24,7 +24,7 @@
 2.4 GHz / 5 GHz 客户端 Wi-Fi SSID
 ```
 
-AC 可以是负责拨号和 DHCP 的主路由，也可以只是挂在现有主路由下面的桥接节点。AP 不负责拨号、DHCP 或 NAT；批准前和批准后都会把 WAN/LAN 当作同一个二层接入口。
+AC 可以是负责拨号和 DHCP 的主路由，也可以只是挂在现有主路由下面的桥接节点。AP 不负责拨号、DHCP 或 NAT；配对前后都会把 WAN/LAN 当作同一个二层接入口。
 
 AC 的 `Network mode` 控制本机网络角色：`Bridge` 模式下 WAN、LAN、Wi-Fi 和 Mesh 回程都桥到同一个 LAN，客户端地址来自上游 DHCP；`Gateway` 模式下 AC 保留 WAN 上联并在 LAN 侧提供 DHCP，AP 仍然作为桥接节点接入 AC LAN。
 
@@ -37,7 +37,7 @@ AC 的 `Network mode` 控制本机网络角色：`Bridge` 模式下 WAN、LAN、
 - 保存全局 Mesh 配置
 - 接收 AP 注册
 - 维护 AP 列表
-- 批准 AP 配对
+- 通过 `Allow pairing` 控制新 AP 注册
 - 通过 CGI API 下发 AP 配置
 - 可把 AC 本机 Wi-Fi 应用为本地 Mesh 成员
 
@@ -49,7 +49,7 @@ AC 的 LuCI 管理页面：
 - 配置无线回程 `mesh_id` / `mesh_key`
 - 配置 802.11k/v/r
 - 配置 DAWN 开关
-- 查看和批准 AP
+- 查看 AP 在线状态和最后上报时间
 - 启用 AC 本地 Mesh 成员模式
 - 底部 Save & Apply 会应用 AC 本机 Wi-Fi / Mesh / 网络模式配置
 
@@ -64,8 +64,7 @@ Services -> Mesh AC
 运行在 AP 设备上：
 
 - 启动后向 AC 注册
-- 等待 AC 批准
-- 拉取 AC 下发的配置
+- 注册成功后拉取 AC 下发的配置
 - 写入 OpenWrt UCI 配置
 - 生成 2.4 GHz / 5 GHz AP SSID、802.11s 回程、batman-adv、DAWN 参数
 - 在 AC 本地成员模式下可用 `--local-ac` 按 `Bridge` 或 `Gateway` 网络模式应用本机配置
@@ -150,7 +149,7 @@ MTK 编译：
 4. workflow 会同时构建 `MT7981-MESH-AC` 和 `MT7981-MESH-AP`
 5. 如只想验证配置，勾选 `test_config_only`
 
-AC 固件会按上游 OpenWRT-CI 的方式注入 `ysuolmai/luci-theme-shadcn`，并默认启用 shadcn LuCI 主题。
+AC 和 AP 固件都会按上游 OpenWRT-CI 的方式注入 `ysuolmai/luci-theme-shadcn`，并默认启用 shadcn LuCI 主题。
 
 workflow 会发布：
 
@@ -211,7 +210,7 @@ Country
 
 `Network mode` 默认是 `Bridge`：AC 的 WAN/LAN、客户端 Wi-Fi 和 Mesh 回程会处在同一个二层 LAN，客户端地址来自上游 DHCP。如果 AC 要作为主路由提供 DHCP/NAT，改成 `Gateway`。
 
-点击 LuCI 底部 `Save & Apply` 后，AC 会按 `Network mode` 应用 WAN/LAN 桥接或网关网络。如果这台 AC 本身也要发 Wi-Fi / 加入 Mesh，保持 `Enable AC local mesh member` 开启；应用时还会清理默认 `ImmortalWrt` 等 LAN AP SSID，按 2.4 GHz / 5 GHz 各自的 SSID 创建客户端 Wi-Fi、802.11s 回程、`batman-adv` 和 DAWN 配置。
+点击 LuCI 底部 `Save & Apply` 后，AC 会按 `Network mode` 应用 WAN/LAN 桥接或网关网络。`Enable AC local mesh member` 默认关闭，此时 AC 保持 ath11k NSS offload 开启；如果这台 AC 本身也要发 Wi-Fi / 加入 Mesh，再打开该选项，应用时会关闭 ath11k NSS offload，并清理默认 `ImmortalWrt` 等 LAN AP SSID，按 2.4 GHz / 5 GHz 各自的 SSID 创建客户端 Wi-Fi、802.11s 回程、`batman-adv` 和 DAWN 配置。
 
 ### 2. 刷 AP 固件
 
@@ -246,11 +245,9 @@ uci commit mesh_agent
 
 把 AP 用网线接入 AC 所在网络。AP 的 WAN 口或 LAN 口都可以使用；在桥接模式下它们都会进入同一个 `br-lan`。
 
-AP 会自动注册。AC 页面会出现待批准 AP，点击 `Approve`。
+当 AC 的 `Allow pairing` 开启时，新 AP 会自动注册并拉取配置；关闭后只接受已经出现过的 AP 继续上报和拉取配置。AP 应用后会生成：
 
-批准后 AP 会拉取配置并应用：
-
-- 2.4 GHz / 5 GHz 2.4 GHz / 5 GHz 客户端 Wi-Fi SSID
+- 2.4 GHz / 5 GHz 客户端 Wi-Fi SSID
 - 802.11k/v/r
 - 802.11s 无线回程
 - batman-adv
@@ -271,7 +268,7 @@ v0.1 还是脚手架，重点是先把 AC/AP 架构跑通：
 - 配对控制目前是家庭网络用的简单模式：`Allow pairing` 开启时允许新 AP 注册，关闭后只保留已知 AP
 - AC 自动发现已用 mDNS 实现，AP 也可手动固定 `ac_url`
 - 有线和无线回程同时挂 batman-adv，环路靠 BLA；显式"有线优先"待后续用 batman hardif + hop_penalty 实现
-- LuCI 页面目前只做基础配置、批准 AP、AC 本机 Mesh 应用
+- LuCI 页面目前只做基础配置、AP 在线/最后上报时间、AC 本机 Mesh 应用
 - 还没有拓扑图、链路质量、在线状态详情
 - 需要真机验证 IPQ60XX / MT7981 上的 802.11s、DAWN 和 KVR 组合
 

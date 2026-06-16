@@ -3,23 +3,24 @@
 Last updated: 2026-06-16
 Repository: https://github.com/ysuolmai/openwrt-ipq-mesh
 Branch: `main`
-Latest implementation commit: `7510bae Show active mesh state in LuCI`
+Latest implementation commit: see `git log --oneline -1`.
 
 ## Current Snapshot - 2026-06-16
 
 Repository: https://github.com/ysuolmai/openwrt-ipq-mesh
 Branch: `main`
-Latest implementation commit: `7510bae Show active mesh state in LuCI`
+Latest implementation commit: see `git log --oneline -1`.
 
 Current direction:
 
 - This is an AC + managed AP firmware project, not a decentralized per-router mesh plugin.
-- AC owns the LuCI UI, global Wi-Fi/backhaul config, AP approval, and config rendering.
-- AP firmware is intentionally LuCI-less and runs `mesh-agent` only.
+- AC owns the LuCI UI, global Wi-Fi/backhaul config, new-AP pairing gate, and config rendering.
+- AP firmware includes LuCI with the shadcn theme for local access, but no Mesh AC management app; it runs `mesh-agent`.
 - AP first boot enters a safe bridge-only state: local DHCP is disabled, WAN/LAN are treated as the same L2 access side, and default OpenWrt/ImmortalWrt LAN AP SSIDs are removed.
-- After approval, AP pulls config from AC and creates client AP SSIDs plus 802.11s backhaul.
+- When `pairing_enabled=1`, a new AP registers and immediately pulls config from AC, creating client AP SSIDs plus 802.11s backhaul.
+- When `pairing_enabled=0`, unknown APs cannot register; known APs can keep updating `last_seen` and pulling config.
 - AC can run in `Bridge` mode or `Gateway` mode. AP always behaves as a bridge node.
-- AC can also be a local mesh member when `local_member=1`.
+- AC defaults to controller/router-only mode with ath11k NSS offload enabled. When `local_member=1`, AC becomes a local mesh member and ath11k NSS offload is disabled.
 
 Latest implemented behavior:
 
@@ -30,6 +31,11 @@ Latest implemented behavior:
 - 2.4 GHz / 5 GHz channel and htmode are LuCI dropdowns instead of free text.
 - AC JSON config and AP apply logic both support split-band SSIDs.
 - New read-only helper: `/usr/sbin/mesh-ac-status`.
+- Managed APs now use automatic registration. LuCI shows online/offline and last seen time.
+- AP agent skips reapplying an unchanged AC config, avoiding repeated Wi-Fi reloads that can flap wireless backhaul.
+- 802.11s mesh backhaul is attached to `batman-adv` by real mesh interface name, not by the UCI alias `@mesh_backhaul`.
+- AP images now include LuCI and `ysuolmai/luci-theme-shadcn`, matching AC theme source.
+- Workflow release files are prefixed with the config target, for example `IPQ60XX-MESH-AC-*` and `IPQ60XX-MESH-AP-*`.
 
 Recent commits:
 
@@ -57,30 +63,30 @@ Hardware status:
 
 - Latest code is pushed, but this exact commit still needs a new firmware build and router flash test.
 - Previous firmware may not include the LuCI active-state table or split-band SSID fields.
-- Do not assume a router already has `7510bae` behavior unless it was built from that commit or newer.
+- Do not assume a router already has current behavior unless it was built from the latest `main`.
 
 ## AP Direct Debug Notes - No SSID After Connecting to AC
 
 Short answer:
 
-- Before the AP is approved by AC, no client SSID on `Network -> Wireless` is expected.
-- After approval and successful config pull/apply, seeing no AP SSID is not expected.
+- If the AP is unknown and `Allow pairing` is off on the AC, no client SSID on `Network -> Wireless` is expected.
+- After automatic registration and successful config pull/apply, seeing no AP SSID is not expected.
 
 Expected AP phases:
 
-1. Fresh AP boot or unapproved AP:
+1. Fresh AP boot before config:
    - uci-defaults runs `/usr/sbin/mesh-agent-apply --network-only`.
    - Default LAN AP SSIDs are deleted.
    - LAN DHCP is disabled.
    - WAN/LAN are bridged for safe access.
    - `Network -> Wireless` may show no client SSID. This is normal.
 
-2. AP registered but not approved:
-   - `mesh-agent` keeps polling AC.
-   - AC should show the node in `Services -> Mesh AC`.
+2. Unknown AP while pairing is disabled:
+   - `mesh-agent` keeps trying to register.
+   - AC returns `pairing-disabled`.
    - AP should still not advertise client SSIDs.
 
-3. AP approved and config applied:
+3. AP registered and config applied:
    - AP should create `wireless.mesh_ap_2g` and/or `wireless.mesh_ap_5g` if radios are detected.
    - AP should create `wireless.mesh_backhaul` for 802.11s.
    - Client SSIDs should appear on the AP.
@@ -114,7 +120,7 @@ uci commit mesh_agent
 /etc/init.d/mesh-agent restart
 ```
 
-After approving on AC, force one local apply cycle on AP if `/etc/mesh-agent/config.json` exists:
+After registration, force one local apply cycle on AP if `/etc/mesh-agent/config.json` exists:
 
 ```sh
 /usr/sbin/mesh-agent-apply /etc/mesh-agent/config.json
@@ -123,8 +129,8 @@ wifi reload
 
 What to look for:
 
-- If `config.json` is missing or contains `"approved":false`, AP has not received approved config.
-- If `config.json` is approved but `wireless.mesh_ap_2g` / `wireless.mesh_ap_5g` are missing, radio detection likely failed.
+- If `config.json` is missing, check AC discovery, `Allow pairing`, and AP registration.
+- If `config.json` exists but `wireless.mesh_ap_2g` / `wireless.mesh_ap_5g` are missing, radio detection or apply likely failed.
 - If wireless sections exist but are disabled or no SSID is broadcast, check `wifi status` and driver/radio errors in `logread`.
 - If only `mesh_backhaul` exists, the AP may have found only the configured backhaul radio or failed to find client radios.
 
@@ -147,7 +153,7 @@ Current product direction:
 
 - AC provides LuCI management UI and global mesh configuration.
 - AP firmware runs an agent and registers to AC after it is connected to the AC LAN.
-- AC approves APs and pushes Wi-Fi/backhaul/roaming config.
+- AC accepts new APs automatically while pairing is enabled, then pushes Wi-Fi/backhaul/roaming config.
 - AP keeps last config and should continue working if AC is offline.
 - First pairing is intended to happen over Ethernet.
 - After pairing, AP can use wireless 802.11s backhaul.
@@ -186,7 +192,6 @@ Provides:
 - `/etc/config/mesh_ac`
 - `/etc/init.d/mesh-ac`
 - `/www/cgi-bin/mesh-ac`
-- `/usr/sbin/mesh-ac-approve`
 - `/usr/sbin/mesh-ac-list`
 - `/usr/sbin/mesh-ac-apply-local`
 
@@ -195,15 +200,15 @@ Current behavior:
 - Stores global SSID, mesh backhaul, KVR and DAWN settings.
 - Receives AP registration through CGI endpoint `/cgi-bin/mesh-ac/register`.
 - Stores one JSON file per AP under `/etc/mesh-ac/nodes/`.
-- APs are unapproved by default.
-- `mesh-ac-approve <node-id>` marks AP as approved.
-- Approved APs can fetch rendered config through `/cgi-bin/mesh-ac/config`.
-- `mesh-ac-apply-local` renders local AC config to JSON and calls `mesh-agent-apply --preserve-lan`.
+- New APs are accepted automatically while `pairing_enabled=1`.
+- When `pairing_enabled=0`, unknown APs are rejected and known APs can continue to update `last_seen`.
+- Known APs can fetch rendered config through `/cgi-bin/mesh-ac/config`.
+- `mesh-ac-apply-local` renders local AC config to JSON and calls `mesh-agent-apply --local-ac`.
 - AC image config selects `mesh-agent` so the shared apply helper is present, while avoiding a package-level dependency cycle.
 
 Security status:
 
-- Home-use pairing is tokenless: `pairing_enabled=1` allows new AP registration, while approved APs can continue to fetch config after pairing is disabled.
+- Home-use pairing is tokenless: `pairing_enabled=1` allows new AP registration, while known APs can continue to fetch config after pairing is disabled.
 - Future improvement can add a timed pairing window or per-AP credentials if stronger security is needed.
 
 ### `mesh-agent`
@@ -221,7 +226,7 @@ Current behavior:
 
 - Registers to configured AC URL.
 - Default AC URL is `http://192.168.50.1/cgi-bin/mesh-ac`.
-- Pulls AC config after approval.
+- Pulls AC config after registration.
 - Applies OpenWrt UCI settings for:
   - 2.4 GHz / 5 GHz client AP SSID
   - 802.11k/v/r
@@ -251,7 +256,6 @@ Current UI:
 - AC enable flag
 - pairing enable flag
 - AC local mesh member flag
-- local apply button
 - client SSID/password
 - country
 - mobility domain
@@ -260,7 +264,7 @@ Current UI:
 - backhaul band/channel/mode
 - DAWN options
 - managed AP table
-- approve button
+- online/offline and last seen display
 
 ## Build Targets
 
@@ -319,10 +323,10 @@ Current behavior:
   - `source_branch` (`main` for IPQ, `owrt` for MTK)
   - `test_config_only`
 - Default source repo is `https://github.com/VIKINGYFY/immortalwrt.git`.
-- AC images clone `ysuolmai/luci-theme-shadcn` during prepare and select `CONFIG_PACKAGE_luci-theme-shadcn=y`; AP images remain LuCI-less.
+- AC and AP images clone `ysuolmai/luci-theme-shadcn` during prepare and select `CONFIG_PACKAGE_luci-theme-shadcn=y`.
 - Build cache is enabled for non-config-only runs, following upstream OpenWRT-CI: `.ccache`, `staging_dir/host*`, and `staging_dir/tool*` are cached and toolchain stamp files are refreshed after restore.
 - `config_name` manual selection was removed.
-- After `make defconfig`, workflow runs `scripts/check-openwrt-config.sh` to verify required device profiles, Wi-Fi driver/firmware symbols, source-side support files, KVR-capable `wpad-openssl`, DAWN, uMDNS, `batman-adv`, and the shadcn LuCI theme on AC images.
+- After `make defconfig`, workflow runs `scripts/check-openwrt-config.sh` to verify required device profiles, Wi-Fi driver/firmware symbols, source-side support files, KVR-capable `wpad-openssl`, DAWN, uMDNS, `batman-adv`, and the shadcn LuCI theme on AC/AP images.
 - Full firmware release collection follows the upstream OpenWRT-CI packaging style by collecting files from `bin/targets` while pruning package repositories. This keeps IPQ NAND factory outputs such as Redmi AX5 and ZN M2 `factory.ubi` without relying on a filename-extension whitelist.
 - `Clean Artifacts` deletes completed workflow runs, deletes config-only releases, and keeps only the latest full firmware release per config target.
 
@@ -353,13 +357,14 @@ User asked whether the AC itself can also be a mesh member if the AC hardware ha
 
 Implemented design:
 
-- `/etc/config/mesh_ac` has `option local_member '1'`.
-- LuCI has `Enable AC local mesh member` and `Apply local mesh config` controls.
+- `/etc/config/mesh_ac` has `option local_member '0'` by default.
+- LuCI has `Enable AC local mesh member`.
 - `/usr/sbin/mesh-ac-apply-local` renders AC config into the same JSON structure used by managed APs.
-- It calls `/usr/sbin/mesh-agent-apply --preserve-lan /tmp/mesh-ac-local-config.json`.
-- `mesh-agent-apply --preserve-lan` applies Wi-Fi APs, 802.11s backhaul, `batman-adv`, and DAWN while preserving AC LAN/WAN/DHCP/firewall behavior. It removes existing LAN AP Wi-Fi interfaces such as the default `ImmortalWrt` SSID so the AC only advertises the configured mesh client SSID.
+- It calls `/usr/sbin/mesh-agent-apply --local-ac /tmp/mesh-ac-local-config.json` when local member mode is enabled.
+- `mesh-agent-apply --local-ac` applies Wi-Fi APs, 802.11s backhaul, `batman-adv`, and DAWN while preserving AC LAN/WAN/DHCP/firewall behavior. It removes existing LAN AP Wi-Fi interfaces such as the default `ImmortalWrt` SSID so the AC only advertises the configured mesh client SSID.
 - Normal managed AP agent service is disabled on AC images so AC does not register to itself as a normal AP.
-- Local apply is explicit through LuCI or `/usr/sbin/mesh-ac-apply-local`; first boot does not broadcast placeholder Wi-Fi credentials automatically.
+- Local mesh member mode is explicit through LuCI or `/usr/sbin/mesh-ac-apply-local`; first boot does not broadcast placeholder Wi-Fi credentials automatically.
+- AC keeps ath11k NSS offload enabled while `local_member=0`, and disables it while `local_member=1` because ath11k NSS offload breaks 802.11s mesh point interfaces on this target.
 
 Important safety rule:
 
@@ -448,14 +453,14 @@ Possible later improvement:
 
 ### 3. Pairing security is intentionally simple
 
-For home use, AP onboarding no longer uses a shared token. New APs can register only while `pairing_enabled` is on. Approved APs can keep pulling config after pairing is turned off.
+For home use, AP onboarding no longer uses a shared token. New APs can register only while `pairing_enabled` is on. Known APs can keep pulling config after pairing is turned off.
 
 Future, if stronger onboarding is needed:
 
 - timed pairing window
 - per-node key
 - certificate or signed token
-- reject unknown AP after pairing window closes
+- reject unknown AP after pairing window closes with clearer LuCI messaging
 
 ### 4. Full firmware compile not verified
 

@@ -13,6 +13,11 @@ CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_qihoo_360v6=y
 CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_zn_m2=y
 
 # Managed AP agent
+CONFIG_PACKAGE_luci=y
+CONFIG_PACKAGE_luci-ssl=y
+CONFIG_LUCI_LANG_zh_Hans=y
+CONFIG_PACKAGE_luci-theme-bootstrap=n
+CONFIG_PACKAGE_luci-theme-shadcn=y
 CONFIG_PACKAGE_mesh-agent=y
 
 

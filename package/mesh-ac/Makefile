@@ -21,7 +21,6 @@ endef
 
 define Package/mesh-ac/conffiles
 /etc/config/mesh_ac
-/etc/mesh-ac/nodes.json
 endef
 
 define Build/Compile

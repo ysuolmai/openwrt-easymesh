@@ -2,7 +2,6 @@
 'require view';
 'require form';
 'require fs';
-'require ui';
 'require uci';
 
 function parseJson(raw, fallback) {
@@ -59,6 +58,31 @@ function renderStatus(status) {
 	return E('div', { 'class': 'cbi-section' }, children);
 }
 
+function formatLastSeen(value) {
+	var timestamp = Number(value || 0);
+	var diff;
+
+	if (!timestamp)
+		return '-';
+
+	diff = Math.max(0, Math.floor(Date.now() / 1000) - timestamp);
+	if (diff < 90)
+		return _('%ds ago').format(diff);
+	if (diff < 3600)
+		return _('%dm ago').format(Math.floor(diff / 60));
+	if (diff < 86400)
+		return _('%dh ago').format(Math.floor(diff / 3600));
+	return new Date(timestamp * 1000).toLocaleString();
+}
+
+function onlineLabel(value) {
+	var timestamp = Number(value || 0);
+
+	return timestamp && ((Date.now() / 1000) - timestamp) < 120
+		? _('Online')
+		: _('Offline');
+}
+
 return view.extend({
 	load: function() {
 		return Promise.all([
@@ -84,7 +108,7 @@ return view.extend({
 		o = s.option(form.Flag, 'pairing_enabled', _('Allow pairing'));
 		o.default = '1';
 		o = s.option(form.Flag, 'local_member', _('Enable AC local mesh member'));
-		o.default = '1';
+		o.default = '0';
 		o = s.option(form.ListValue, 'network_mode', _('Network mode'));
 		o.value('bridge', _('Bridge'));
 		o.value('gateway', _('Gateway'));
@@ -148,8 +172,8 @@ return view.extend({
 					E('th', _('Node')),
 					E('th', _('MAC')),
 					E('th', _('IP')),
-					E('th', _('Approved')),
-					E('th', _('Action'))
+					E('th', _('Status')),
+					E('th', _('Last seen'))
 				])
 			])
 		]);
@@ -162,17 +186,8 @@ return view.extend({
 				E('td', node.id || ''),
 				E('td', node.mac || ''),
 				E('td', node.ip || ''),
-				E('td', String(node.approved)),
-				E('td', {}, [
-					E('button', {
-						'class': 'btn cbi-button cbi-button-apply',
-						'click': ui.createHandlerFn(this, function() {
-							return fs.exec('/usr/sbin/mesh-ac-approve', [ node.id ]).then(function() {
-								location.reload();
-							});
-						})
-					}, _('Approve'))
-				])
+				E('td', onlineLabel(node.last_seen)),
+				E('td', formatLastSeen(node.last_seen))
 			]));
 		}, this);
 

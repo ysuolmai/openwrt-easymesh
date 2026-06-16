@@ -1,5 +1,17 @@
 #!/bin/sh
 
+set_ath11k_nss_offload() {
+	local value="$1"
+
+	[ -f /etc/modules.d/ath11k ] || return 0
+	if grep -q 'nss_offload=' /etc/modules.d/ath11k; then
+		sed -i "s/nss_offload=[01]/nss_offload=$value/g" /etc/modules.d/ath11k
+	else
+		sed -i "s/^ath11k\\([[:space:]]\\|$\\)/ath11k nss_offload=$value\\1/" /etc/modules.d/ath11k
+	fi
+	echo "$value" > /sys/module/ath11k/parameters/nss_offload 2>/dev/null || true
+}
+
 /etc/init.d/umdns enable >/dev/null 2>&1 || true
 
 if [ -f /etc/config/mesh_ac ]; then
@@ -7,6 +19,7 @@ if [ -f /etc/config/mesh_ac ]; then
 	uci -q commit mesh_agent
 	/etc/init.d/mesh-agent disable >/dev/null 2>&1 || true
 else
+	set_ath11k_nss_offload 0
 	/usr/sbin/mesh-agent-apply --network-only >/dev/null 2>&1 || true
 	/etc/init.d/mesh-agent enable >/dev/null 2>&1 || true
 fi

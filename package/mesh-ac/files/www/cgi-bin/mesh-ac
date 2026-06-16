@@ -4,11 +4,9 @@ set -e
 
 . /lib/functions.sh
 
-NODES=/etc/mesh-ac/nodes.json
 TMP=/tmp/mesh-ac
 
-mkdir -p "$TMP" /etc/mesh-ac
-[ -f "$NODES" ] || echo '{}' > "$NODES"
+mkdir -p "$TMP" /etc/mesh-ac/nodes
 
 header_json() {
 	printf 'Content-Type: application/json\r\n\r\n'
@@ -33,48 +31,35 @@ pairing_enabled() {
 	[ "$(uci_get mesh_ac.main.pairing_enabled 1)" = "1" ]
 }
 
-node_approved() {
-	local file="$1"
-	[ "$(jsonfilter -i "$file" -e "@.approved" 2>/dev/null || echo false)" = "true" ]
-}
-
 register_node() {
 	local id="$1"
 	local mac="$2"
 	local model="$3"
 	local ip="$4"
-	local now approved
-	local file node
+	local now
+	local file
 
 	now="$(date +%s)"
-	node="/etc/mesh-ac/nodes/$id.json"
-	approved=false
-	if [ -f "$node" ] && node_approved "$node"; then
-		approved=true
-	fi
 
 	file="$TMP/node-$id.json"
-	printf '{"id":"%s","mac":"%s","model":"%s","ip":"%s","approved":%s,"last_seen":%s}\n' \
-		"$id" "$mac" "$model" "$ip" "$approved" "$now" > "$file"
+	printf '{"id":"%s","mac":"%s","model":"%s","ip":"%s","last_seen":%s}\n' \
+		"$id" "$mac" "$model" "$ip" "$now" > "$file"
 	mkdir -p /etc/mesh-ac/nodes
-	cp "$file" "$node"
+	cp "$file" "/etc/mesh-ac/nodes/$id.json"
 }
 
 render_config() {
-	local approved_file="$1"
-	local approved
+	local node_file="$1"
 	local ssid_default
 
-	approved="$(jsonfilter -i "$approved_file" -e '@.approved' 2>/dev/null || echo false)"
-	[ "$approved" = "true" ] || {
-		printf '{"approved":false}\n'
+	[ -f "$node_file" ] || {
+		printf '{"ok":false,"error":"unknown-node"}\n'
 		return
 	}
 	ssid_default="$(uci_get mesh_ac.main.ssid OpenWrt-Mesh)"
 
 	cat <<EOF
 {
-  "approved": true,
   "network": {
     "mode": "$(uci_get mesh_ac.main.network_mode bridge)",
     "cidr": "$(uci_get mesh_ac.main.network_cidr 192.168.50.0/24)"
@@ -131,19 +116,18 @@ case "$PATH_INFO" in
 			exit 0
 		fi
 		register_node "$id" "$mac" "$model" "$ip"
-		approved="$(jsonfilter -i "$node" -e '@.approved' 2>/dev/null || echo false)"
-		printf '{"ok":true,"approved":%s}\n' "$approved"
+		printf '{"ok":true}\n'
 		;;
 	/config)
 		header_json
 		id="$(json_get id)"
 		if [ -z "$id" ]; then
-			printf '{"approved":false,"error":"missing-id"}\n'
+			printf '{"ok":false,"error":"missing-id"}\n'
 			exit 0
 		fi
 		node="/etc/mesh-ac/nodes/$id.json"
 		[ -f "$node" ] || {
-			printf '{"approved":false,"error":"unknown-node"}\n'
+			printf '{"ok":false,"error":"unknown-node"}\n'
 			exit 0
 		}
 		render_config "$node"

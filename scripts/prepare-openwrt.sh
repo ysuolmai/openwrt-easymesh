@@ -165,6 +165,7 @@ case "$CONFIG_NAME" in
 		filter_ipq60xx_devices
 		;;
 	IPQ60XX-MESH-AP)
+		install_shadcn_theme
 		filter_ipq60xx_devices
 		;;
 	MT7981-MESH-AC)
@@ -173,6 +174,7 @@ case "$CONFIG_NAME" in
 		filter_mt7981_devices
 		;;
 	MT7981-MESH-AP)
+		install_shadcn_theme
 		inject_sx_7981r128
 		filter_mt7981_devices
 		;;

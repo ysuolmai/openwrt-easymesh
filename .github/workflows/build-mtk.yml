@@ -115,7 +115,7 @@ jobs:
           if [ "$TEST_CONFIG_ONLY" != "true" ]; then
             find bin/targets \
               -type d -name packages -prune -o \
-              -type f -exec cp -f {} upload/ \;
+              -type f -exec sh -c 'for file; do cp -f "$file" "upload/${CONFIG_NAME}-$(basename "$file")"; done' sh {} +
           fi
 
       - name: Release artifacts

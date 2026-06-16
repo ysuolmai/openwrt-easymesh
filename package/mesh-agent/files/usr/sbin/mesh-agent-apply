@@ -213,6 +213,47 @@ set_bat0_bridge_port() {
 	fi
 }
 
+mesh_backhaul_ifname() {
+	iw dev 2>/dev/null | awk '
+		$1 == "Interface" { iface = $2 }
+		$1 == "type" && $2 == "mesh" && $3 == "point" {
+			print iface
+			exit
+		}
+	'
+}
+
+attach_mesh_backhaul_to_batman() {
+	local iface
+	local tries
+
+	command -v batctl >/dev/null 2>&1 || return 0
+
+	tries=0
+	while [ "$tries" -lt 15 ]; do
+		iface="$(mesh_backhaul_ifname)"
+		if [ -n "$iface" ] && [ -e "/sys/class/net/$iface" ]; then
+			uci -q set network.batmesh.device="$iface"
+			uci commit network
+			ip link set "$iface" mtu 1532 >/dev/null 2>&1 || true
+			ip link set "$iface" up >/dev/null 2>&1 || true
+			ifup batmesh >/dev/null 2>&1 || true
+			if ! batctl if 2>/dev/null | grep -q "^$iface:"; then
+				batctl if add "$iface" >/dev/null 2>&1 || true
+			fi
+			if batctl if 2>/dev/null | grep -q "^$iface:"; then
+				logger -t mesh-agent "attached $iface to batman-adv"
+				return 0
+			fi
+		fi
+		tries=$((tries + 1))
+		sleep 1
+	done
+
+	logger -t mesh-agent "mesh backhaul interface not attached to batman-adv"
+	return 0
+}
+
 remove_wan_ports_from_bridge() {
 	local section="$1"
 	local port
@@ -396,7 +437,7 @@ uci -q set network.bat0.distributed_arp_table=1
 uci -q set network.batmesh=interface
 uci -q set network.batmesh.proto=batadv_hardif
 uci -q set network.batmesh.master=bat0
-uci -q set network.batmesh.device='@mesh_backhaul'
+uci -q delete network.batmesh.device >/dev/null 2>&1 || true
 
 apply_network_config "$network_mode" 1
 
@@ -466,6 +507,7 @@ uci commit dawn || true
 
 wifi reload >/dev/null 2>&1 || wifi up >/dev/null 2>&1 || true
 /etc/init.d/network reload >/dev/null 2>&1 || true
+attach_mesh_backhaul_to_batman
 [ "$dawn_enabled" = "1" ] && /etc/init.d/dawn restart >/dev/null 2>&1 || true
 
 if [ "$local_ac" = "1" ]; then

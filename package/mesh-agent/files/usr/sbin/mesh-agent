@@ -168,19 +168,22 @@ pull_config() {
 	post_json "$ac/config" "$body"
 }
 
-apply_if_approved() {
+apply_config() {
 	local cfg="$1"
-	local approved
 
-	approved="$(jsonfilter -s "$cfg" -e '@.approved' 2>/dev/null || echo false)"
-	[ "$approved" = "true" ] || return 1
+	jsonfilter -s "$cfg" -e '@.network.mode' >/dev/null 2>&1 || return 1
+
+	if [ -f /etc/mesh-agent/config.json ] && [ "$cfg" = "$(cat /etc/mesh-agent/config.json 2>/dev/null)" ]; then
+		log "AC config unchanged"
+		return 2
+	fi
 
 	printf '%s' "$cfg" > /etc/mesh-agent/config.json
 	/usr/sbin/mesh-agent-apply /etc/mesh-agent/config.json
 }
 
 main() {
-	local ac interval cfg
+	local ac interval cfg apply_status
 
 	interval="$(uci_get mesh_agent.main.poll_interval 30)"
 	ac=""
@@ -194,10 +197,16 @@ main() {
 		fi
 		register "$ac"
 		cfg="$(pull_config "$ac" || true)"
-		if [ -n "$cfg" ] && apply_if_approved "$cfg"; then
-			log "applied AC config from $ac"
+		if [ -n "$cfg" ]; then
+			apply_status=0
+			apply_config "$cfg" || apply_status="$?"
+			case "$apply_status" in
+				0) log "applied AC config from $ac" ;;
+				2) ;;
+				*) log "waiting for AC config (ac=$ac)" ;;
+			esac
 		else
-			log "waiting for AC approval or config (ac=$ac)"
+			log "waiting for AC config (ac=$ac)"
 		fi
 		sleep "$interval"
 	done

@@ -8,7 +8,19 @@ uci_get() {
 	uci -q get "$1" 2>/dev/null || printf '%s' "$2"
 }
 
-local_member="$(uci_get mesh_ac.main.local_member 1)"
+set_ath11k_nss_offload() {
+	local value="$1"
+
+	[ -f /etc/modules.d/ath11k ] || return 0
+	if grep -q 'nss_offload=' /etc/modules.d/ath11k; then
+		sed -i "s/nss_offload=[01]/nss_offload=$value/g" /etc/modules.d/ath11k
+	else
+		sed -i "s/^ath11k\\([[:space:]]\\|$\\)/ath11k nss_offload=$value\\1/" /etc/modules.d/ath11k
+	fi
+	echo "$value" > /sys/module/ath11k/parameters/nss_offload 2>/dev/null || true
+}
+
+local_member="$(uci_get mesh_ac.main.local_member 0)"
 network_mode="$(uci_get mesh_ac.main.network_mode bridge)"
 network_cidr="$(uci_get mesh_ac.main.network_cidr 192.168.50.0/24)"
 ssid_default="$(uci_get mesh_ac.main.ssid OpenWrt-Mesh)"
@@ -17,7 +29,6 @@ tmp="/tmp/mesh-ac-local-config.json"
 umask 077
 
 json_init
-json_add_boolean approved 1
 
 json_add_object network
 json_add_string mode "$network_mode"
@@ -60,9 +71,11 @@ fi
 json_dump > "$tmp"
 
 if [ "$local_member" = "1" ]; then
+	set_ath11k_nss_offload 0
 	/usr/sbin/mesh-agent-apply --local-ac "$tmp"
 	logger -t mesh-ac "applied local mesh member config"
 else
+	set_ath11k_nss_offload 1
 	/usr/sbin/mesh-agent-apply --local-ac --network-only "$tmp"
 	logger -t mesh-ac "applied AC network config"
 fi
