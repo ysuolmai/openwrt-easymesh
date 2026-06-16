@@ -115,7 +115,20 @@ jobs:
           if [ "$TEST_CONFIG_ONLY" != "true" ]; then
             find bin/targets \
               -type d -name packages -prune -o \
-              -type f -exec sh -c 'for file; do cp -f "$file" "upload/${CONFIG_NAME}-$(basename "$file")"; done' sh {} +
+              -type f -exec sh -c '
+                for file; do
+                  name="$(basename "$file")"
+                  name="${name#immortalwrt-}"
+                  name="${name#openwrt-}"
+                  name="${name#mediatek-}"
+                  name="${name#filogic-}"
+                  case "$name" in
+                    "$CONFIG_NAME"-*) ;;
+                    *) name="$CONFIG_NAME-$name" ;;
+                  esac
+                  cp -f "$file" "upload/$name"
+                done
+              ' sh {} +
           fi
 
       - name: Release artifacts
