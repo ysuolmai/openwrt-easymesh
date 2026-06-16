@@ -56,6 +56,22 @@ require_file_contains() {
 	fi
 }
 
+require_file_exact() {
+	local file="$1"
+	local expected="$2"
+	local label="$3"
+
+	if [ ! -f "$file" ]; then
+		echo "missing required file for ${label}: ${file}" >&2
+		missing=1
+		return
+	fi
+	if [ "$(cat "$file")" != "$expected" ]; then
+		echo "unexpected file content for ${label}: ${file}" >&2
+		missing=1
+	fi
+}
+
 require_common_mesh_packages() {
 	require_symbol CONFIG_PACKAGE_wpad-openssl
 	require_symbol CONFIG_PACKAGE_kmod-batman-adv
@@ -129,6 +145,12 @@ require_ap_packages() {
 	require_symbol CONFIG_PACKAGE_mesh-agent
 }
 
+require_ipq_ap_rootfs_overrides() {
+	require_file_exact "$openwrt_dir/files/etc/modules.d/ath11k" \
+		"ath11k nss_offload=0 frame_mode=2" \
+		"IPQ AP ath11k module parameters"
+}
+
 case "$config_name" in
 	IPQ60XX-MESH-AC)
 		require_ipq60xx_target
@@ -139,6 +161,7 @@ case "$config_name" in
 		require_ipq60xx_target
 		require_common_mesh_packages
 		require_ap_packages
+		require_ipq_ap_rootfs_overrides
 		;;
 	MT7981-MESH-AC)
 		require_mt7981_target

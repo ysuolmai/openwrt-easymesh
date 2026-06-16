@@ -23,6 +23,7 @@ cp -R "$ROOT_DIR/package/." "$OPENWRT_DIR/package/openwrt-ipq-mesh/"
 cat "$CONFIG_FILE" >> "$OPENWRT_DIR/.config"
 
 install_shadcn_theme() {
+	[ "${SKIP_SHADCN_CLONE:-0}" = "1" ] && return 0
 	local dst="$OPENWRT_DIR/package/luci-theme-shadcn"
 
 	if [ -d "$dst" ]; then
@@ -33,6 +34,21 @@ install_shadcn_theme() {
 
 	find "$OPENWRT_DIR/feeds/luci/collections" -type f -name Makefile \
 		-exec sed -i 's/luci-theme-bootstrap/luci-theme-shadcn/g' {} +
+}
+
+clear_prepared_ath11k_module_override() {
+	local path="$OPENWRT_DIR/files/etc/modules.d/ath11k"
+
+	[ -f "$path" ] || return 0
+	grep -q '^ath11k nss_offload=[01] frame_mode=2$' "$path" || return 0
+	rm -f "$path"
+}
+
+install_ipq_ap_ath11k_module_override() {
+	local modules_dir="$OPENWRT_DIR/files/etc/modules.d"
+
+	mkdir -p "$modules_dir"
+	printf '%s\n' 'ath11k nss_offload=0 frame_mode=2' > "$modules_dir/ath11k"
 }
 
 filter_ipq60xx_devices() {
@@ -159,6 +175,8 @@ filter_mt7981_devices() {
 	}" "$OPENWRT_DIR/.config"
 }
 
+clear_prepared_ath11k_module_override
+
 case "$CONFIG_NAME" in
 	IPQ60XX-MESH-AC)
 		install_shadcn_theme
@@ -166,6 +184,7 @@ case "$CONFIG_NAME" in
 		;;
 	IPQ60XX-MESH-AP)
 		install_shadcn_theme
+		install_ipq_ap_ath11k_module_override
 		filter_ipq60xx_devices
 		;;
 	MT7981-MESH-AC)

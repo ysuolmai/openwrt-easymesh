@@ -9,7 +9,8 @@ if [ -f /etc/config/mesh_ac ]; then
 	uci -q commit mesh_agent
 	/etc/init.d/mesh-agent disable >/dev/null 2>&1 || true
 else
-	ath11k_nss_set_offload 0 "managed AP first boot" || true
+	ath11k_nss_set_module_config 0
+	echo 0 > /sys/module/ath11k/parameters/nss_offload 2>/dev/null || true
 	/usr/sbin/mesh-agent-apply --network-only >/dev/null 2>&1 || true
 	/etc/init.d/mesh-agent enable >/dev/null 2>&1 || true
 fi

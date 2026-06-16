@@ -48,6 +48,7 @@ AC 的 `Network mode` 控制本机网络角色：`Bridge` 模式下 WAN、LAN、
 - 根据本机是否存在 Wi-Fi 驱动或 `/etc/config/wireless` 决定是否执行
 - `local_member=0` 时保持 ath11k NSS offload 开启
 - `local_member=1` 时关闭 ath11k NSS offload，并应用 AC 本机 Wi-Fi / 802.11s / batman 配置；如果 ath11k 模块已加载，会自动安排一次重启让模块参数生效
+- IPQ AP 固件在 rootfs 中直接预置 `ath11k nss_offload=0 frame_mode=2`，避免首刷后依赖 uci-defaults 抢在驱动加载前修改参数
 
 ### `luci-app-mesh-ac`
 
