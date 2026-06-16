@@ -1,3 +1,7 @@
+# 高质量<付费>中转站
+
+https://sc.350303.xyz/register?aff=C8X8NEL4BXX6
+
 # OpenWrt Mesh AC
 
 一个基于 OpenWrt / ImmortalWrt 的 Mesh AC + AP 管理项目，当前支持 IPQ60XX 和 MT7981。
