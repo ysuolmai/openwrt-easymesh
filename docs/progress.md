@@ -1,9 +1,143 @@
 # OpenWrt Mesh AC Progress
 
-Last updated: 2026-06-13
+Last updated: 2026-06-16
 Repository: https://github.com/ysuolmai/openwrt-ipq-mesh
 Branch: `main`
-Latest pushed commit before MTK work: `ba7ea05 Fix config validation for device BDF packages`
+Latest implementation commit: `7510bae Show active mesh state in LuCI`
+
+## Current Snapshot - 2026-06-16
+
+Repository: https://github.com/ysuolmai/openwrt-ipq-mesh
+Branch: `main`
+Latest implementation commit: `7510bae Show active mesh state in LuCI`
+
+Current direction:
+
+- This is an AC + managed AP firmware project, not a decentralized per-router mesh plugin.
+- AC owns the LuCI UI, global Wi-Fi/backhaul config, AP approval, and config rendering.
+- AP firmware is intentionally LuCI-less and runs `mesh-agent` only.
+- AP first boot enters a safe bridge-only state: local DHCP is disabled, WAN/LAN are treated as the same L2 access side, and default OpenWrt/ImmortalWrt LAN AP SSIDs are removed.
+- After approval, AP pulls config from AC and creates client AP SSIDs plus 802.11s backhaul.
+- AC can run in `Bridge` mode or `Gateway` mode. AP always behaves as a bridge node.
+- AC can also be a local mesh member when `local_member=1`.
+
+Latest implemented behavior:
+
+- LuCI Mesh AC page now shows `Current active state` from real system UCI state, not just `/etc/config/mesh_ac` desired values.
+- `Network mode` selector is initialized from actual active state when the device is clearly in bridge/gateway mode, so it should not show stale `bridge` while the box is actually still gateway.
+- 2.4 GHz and 5 GHz client SSIDs are now separate fields: `ssid_2g` and `ssid_5g`.
+- Legacy `ssid` remains as fallback for upgrades.
+- 2.4 GHz / 5 GHz channel and htmode are LuCI dropdowns instead of free text.
+- AC JSON config and AP apply logic both support split-band SSIDs.
+- New read-only helper: `/usr/sbin/mesh-ac-status`.
+
+Recent commits:
+
+```text
+7510bae Show active mesh state in LuCI
+d4481f3 Add bridge and gateway mesh network modes
+3094d6f Unify mesh AC apply action
+b681b1a Use named wireless sections
+3585c0a Fix local mesh apply
+79f1346 Add OpenWrt build cache
+7d40a17 Use personal shadcn theme fork
+521e68c Improve home mesh onboarding
+```
+
+Validation run locally for latest commit:
+
+```sh
+sh -n package/mesh-ac/files/usr/sbin/mesh-ac-apply-local package/mesh-ac/files/usr/sbin/mesh-ac-status package/mesh-ac/files/www/cgi-bin/mesh-ac package/mesh-agent/files/usr/sbin/mesh-agent-apply
+node --check package/luci-app-mesh-ac/htdocs/luci-static/resources/view/mesh-ac/overview.js
+python3 -m json.tool package/luci-app-mesh-ac/root/usr/share/rpcd/acl.d/luci-app-mesh-ac.json
+git diff --check
+```
+
+Hardware status:
+
+- Latest code is pushed, but this exact commit still needs a new firmware build and router flash test.
+- Previous firmware may not include the LuCI active-state table or split-band SSID fields.
+- Do not assume a router already has `7510bae` behavior unless it was built from that commit or newer.
+
+## AP Direct Debug Notes - No SSID After Connecting to AC
+
+Short answer:
+
+- Before the AP is approved by AC, no client SSID on `Network -> Wireless` is expected.
+- After approval and successful config pull/apply, seeing no AP SSID is not expected.
+
+Expected AP phases:
+
+1. Fresh AP boot or unapproved AP:
+   - uci-defaults runs `/usr/sbin/mesh-agent-apply --network-only`.
+   - Default LAN AP SSIDs are deleted.
+   - LAN DHCP is disabled.
+   - WAN/LAN are bridged for safe access.
+   - `Network -> Wireless` may show no client SSID. This is normal.
+
+2. AP registered but not approved:
+   - `mesh-agent` keeps polling AC.
+   - AC should show the node in `Services -> Mesh AC`.
+   - AP should still not advertise client SSIDs.
+
+3. AP approved and config applied:
+   - AP should create `wireless.mesh_ap_2g` and/or `wireless.mesh_ap_5g` if radios are detected.
+   - AP should create `wireless.mesh_backhaul` for 802.11s.
+   - Client SSIDs should appear on the AP.
+
+Commands to run on the AP while directly connected:
+
+```sh
+logread | grep mesh-agent
+/etc/init.d/mesh-agent status
+uci show mesh_agent
+uci show wireless | grep -E 'mesh_ap|mesh_backhaul|ssid|mesh_id|device|mode|disabled'
+uci show network | grep -E 'lan|wan|br_lan|bat0|batmesh'
+cat /etc/mesh-agent/config.json 2>/dev/null
+cat /etc/mesh-agent/ac_url 2>/dev/null
+```
+
+Useful connectivity checks from AP:
+
+```sh
+ip route
+ubus call umdns browse
+curl -fsS http://172.28.1.114/cgi-bin/mesh-ac
+```
+
+If AC is not discovered automatically, pin it temporarily on AP:
+
+```sh
+uci set mesh_agent.main.ac_url='http://172.28.1.114/cgi-bin/mesh-ac'
+uci set mesh_agent.main.ac_discovery='static'
+uci commit mesh_agent
+/etc/init.d/mesh-agent restart
+```
+
+After approving on AC, force one local apply cycle on AP if `/etc/mesh-agent/config.json` exists:
+
+```sh
+/usr/sbin/mesh-agent-apply /etc/mesh-agent/config.json
+wifi reload
+```
+
+What to look for:
+
+- If `config.json` is missing or contains `"approved":false`, AP has not received approved config.
+- If `config.json` is approved but `wireless.mesh_ap_2g` / `wireless.mesh_ap_5g` are missing, radio detection likely failed.
+- If wireless sections exist but are disabled or no SSID is broadcast, check `wifi status` and driver/radio errors in `logread`.
+- If only `mesh_backhaul` exists, the AP may have found only the configured backhaul radio or failed to find client radios.
+
+## Current Files To Inspect First
+
+```text
+package/mesh-agent/files/etc/uci-defaults/90-mesh-agent-enable
+package/mesh-agent/files/usr/sbin/mesh-agent
+package/mesh-agent/files/usr/sbin/mesh-agent-apply
+package/mesh-ac/files/www/cgi-bin/mesh-ac
+package/mesh-ac/files/usr/sbin/mesh-ac-status
+package/luci-app-mesh-ac/htdocs/luci-static/resources/view/mesh-ac/overview.js
+```
 
 ## Goal
 
