@@ -84,7 +84,7 @@ Services -> EasyMesh
 
 ## 固件目标
 
-当前提供两组平台目标。每个平台都同时提供 AC 和 AP 包，设备 profile 不再使用本仓库自己的设备子集，而是跟随 `ysuolmai/OpenWRT-CI` 里的上游配置文件。
+当前提供三组平台目标。每个平台都同时提供 AC 和 AP 包，设备 profile 不再使用本仓库自己的设备子集，而是跟随 `ysuolmai/OpenWRT-CI` 里的上游配置文件。
 
 IPQ60XX：
 
@@ -104,6 +104,16 @@ MT7981-MESH-AP
 
 设备列表来源：`Config/MEDIATEK-WIFI-YES.txt`。完整展开列表以 `configs/MT7981-MESH-*.txt` 为准，并保留上游配置里的 `kmod-cryptodev` / `kmod-tls` 内核调整。
 
+
+CloseWRT MT7981：
+
+```text
+CLOSEWRT-MT7981-MESH-AC
+CLOSEWRT-MT7981-MESH-AP
+```
+
+设备列表来源：`ysuolmai/CloseWRT-CI` 的 `Config/MT7981.txt`，完整展开列表以 `configs/CLOSEWRT-MT7981-MESH-*.txt` 为准，并保留 `sx_7981r128` 的 CloseWRT 6.6 DTS、PHY patch 和设备 profile 注入。
+
 其中 `sx_7981r128` 不是 `VIKINGYFY/immortalwrt` 源码自带 profile，本项目会在准备配置阶段按上游机制注入 DTS、`filogic.mk` 设备条目、基础网络和首次启动配置。
 
 ## 编译
@@ -118,15 +128,15 @@ https://github.com/VIKINGYFY/immortalwrt.git
 
 IPQ workflow 默认分支是 `main`，并按上游 `Config/IPQ60XX-WIFI-YES.txt` 的设备列表选择 profile；各设备需要的 `ipq-wifi-*` BDF 包由对应 profile 选择。
 
-MTK workflow 单独放在 `.github/workflows/build-mtk.yml`，默认分支是 `owrt`，跟随上游 `MTK-ALL.yml`。
+MTK workflow 单独放在 `.github/workflows/build-mtk.yml`，默认分支是 `owrt`，跟随上游 `MTK-ALL.yml`。CloseWRT 闭源 MTK SDK workflow 单独放在 `.github/workflows/build-closewrt-mtk.yml`，默认源码跟随 `ysuolmai/CloseWRT-CI` 当前使用的 `Yuzhii0718/immortalwrt-mt798x-6.6-padavanonly` / `openwrt-24.10-6.6`。
 
 workflow 参考上游 OpenWRT-CI 启用构建缓存：非 `test_config_only` 构建会缓存 `.ccache`、`staging_dir/host*` 和 `staging_dir/tool*`，并在恢复缓存后刷新 toolchain stamp，减少重复编译时间。
 
-`make defconfig` 后 workflow 会运行 `scripts/check-openwrt-config.sh`，主动检查以下关键内容：
+`make defconfig` 后 workflow 会运行对应 checker：普通 IPQ/MTK 使用 `scripts/check-openwrt-config.sh`，CloseWRT MTK 使用 `scripts/check-closewrt-config.sh`。它们会主动检查以下关键内容：
 
 - 目标设备 profile 是否包含 `configs/*.txt` 中同步自上游的完整设备列表
 - IPQ：`kmod-ath11k-ahb` / `kmod-ath11k-pci`、IPQ6018 firmware；各设备 BDF 包由设备 profile 选择
-- MTK：`kmod-mt7915e`、`kmod-mt7981-firmware`、`mt7981-wo-firmware`、`kmod-cryptodev`、`kmod-tls`
+- MTK：普通 MTK 检查 `kmod-mt7915e`、`kmod-mt7981-firmware`、`mt7981-wo-firmware`、`kmod-cryptodev`、`kmod-tls`；CloseWRT MTK 检查闭源 MTK Wi-Fi 栈和 `sx_7981r128` 注入
 - `wpad-openssl`
 - `batman-adv` / `batctl`
 - DAWN / uMDNS
@@ -146,6 +156,14 @@ MTK 编译：
 2. 选择 `Build MTK EasyMesh`
 3. 点击 `Run workflow`
 4. workflow 会同时构建 `MT7981-MESH-AC` 和 `MT7981-MESH-AP`
+5. 如只想验证配置，勾选 `test_config_only`
+
+CloseWRT MTK 编译：
+
+1. 打开 GitHub 仓库的 `Actions`
+2. 选择 `Build CloseWRT MTK EasyMesh`
+3. 点击 `Run workflow`
+4. workflow 会同时构建 `CLOSEWRT-MT7981-MESH-AC` 和 `CLOSEWRT-MT7981-MESH-AP`
 5. 如只想验证配置，勾选 `test_config_only`
 
 AC 和 AP 固件都会按上游 OpenWRT-CI 的方式注入 `ysuolmai/luci-theme-shadcn`，并默认启用 shadcn LuCI 主题。

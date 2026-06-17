@@ -1,0 +1,157 @@
+name: Build CloseWRT MTK EasyMesh
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_repo:
+        description: CloseWRT MT7981 source repository
+        default: https://github.com/Yuzhii0718/immortalwrt-mt798x-6.6-padavanonly.git
+        required: true
+        type: string
+      source_branch:
+        description: Source branch
+        default: openwrt-24.10-6.6
+        required: true
+        type: string
+      test_config_only:
+        description: Generate .config only
+        default: false
+        required: true
+        type: boolean
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        config_name:
+          - CLOSEWRT-MT7981-MESH-AC
+          - CLOSEWRT-MT7981-MESH-AP
+    env:
+      SOURCE_REPO: ${{ inputs.source_repo }}
+      SOURCE_BRANCH: ${{ inputs.source_branch }}
+      CONFIG_NAME: ${{ matrix.config_name }}
+      TEST_CONFIG_ONLY: ${{ inputs.test_config_only }}
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h
+
+      - name: Install dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dos2unix libfuse-dev
+          sudo bash -c 'bash <(curl -sL https://build-scripts.immortalwrt.org/init_build_environment.sh)'
+
+      - name: Clone source
+        run: |
+          git clone --depth=1 --single-branch --branch "$SOURCE_BRANCH" "$SOURCE_REPO" openwrt
+          cd openwrt
+          echo "SOURCE_HASH=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+          if [ ! -d defconfig ]; then
+            echo "defconfig directory not found in CloseWRT source" >&2
+            exit 1
+          fi
+          if [ -f scripts/projectsmirrors.json ]; then
+            sed -i '/.cn\//d; /tencent/d; /aliyun/d' scripts/projectsmirrors.json
+          fi
+
+      - name: Normalize scripts
+        run: |
+          find . -maxdepth 3 -type f \( -name '*.txt' -o -name '*.sh' \) -exec dos2unix {} \; -exec chmod +x {} \;
+
+      - name: Restore build cache
+        if: env.TEST_CONFIG_ONLY != 'true'
+        uses: actions/cache@v4
+        with:
+          key: closewrt-${{ env.CONFIG_NAME }}-${{ env.SOURCE_BRANCH }}-${{ env.SOURCE_HASH }}
+          restore-keys: |
+            closewrt-${{ env.CONFIG_NAME }}-${{ env.SOURCE_BRANCH }}-
+            closewrt-${{ env.CONFIG_NAME }}-
+          path: |
+            openwrt/.ccache
+            openwrt/staging_dir/host*
+            openwrt/staging_dir/tool*
+
+      - name: Refresh cached toolchain stamps
+        if: env.TEST_CONFIG_ONLY != 'true'
+        run: |
+          cd openwrt
+          if [ -d staging_dir ]; then
+            find staging_dir -type d -name stamp -not -path '*target*' | while read -r dir; do
+              find "$dir" -type f -exec touch {} +
+            done
+            mkdir -p tmp
+            echo 1 > tmp/.build
+          fi
+
+      - name: Update feeds
+        run: |
+          cd openwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Prepare config
+        run: |
+          cd openwrt
+          OPENWRT_DIR="$PWD" "$GITHUB_WORKSPACE/scripts/prepare-closewrt.sh" "$CONFIG_NAME"
+          rm -f tmp/.targetinfo tmp/.config-target.in
+          make prepare-tmpinfo
+          make defconfig
+          "$GITHUB_WORKSPACE/scripts/check-closewrt-config.sh" "$CONFIG_NAME" .config
+
+      - name: Build firmware
+        if: env.TEST_CONFIG_ONLY != 'true'
+        run: |
+          cd openwrt
+          make download -j"$(nproc)"
+          make -j"$(nproc)" || make -j1 V=s
+
+      - name: Collect artifacts
+        run: |
+          cd openwrt
+          mkdir -p upload
+          cp .config "upload/config-${CONFIG_NAME}-${SOURCE_HASH}.txt"
+          if [ "$TEST_CONFIG_ONLY" != "true" ]; then
+            find bin/targets \
+              -type d -name packages -prune -o \
+              -type f -exec sh -c '
+                for file; do
+                  name="$(basename "$file")"
+                  name="${name#immortalwrt-}"
+                  name="${name#openwrt-}"
+                  name="${name#mediatek-}"
+                  name="${name#filogic-}"
+                  case "$name" in
+                    "$CONFIG_NAME"-*) ;;
+                    *) name="$CONFIG_NAME-$name" ;;
+                  esac
+                  cp -f "$file" "upload/$name"
+                done
+              ' sh {} +
+          fi
+
+      - name: Release artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.CONFIG_NAME }}-${{ env.SOURCE_HASH }}-${{ github.run_number }}
+          files: openwrt/upload/*
+          body: |
+            Source: ${{ env.SOURCE_REPO }}
+            Branch: ${{ env.SOURCE_BRANCH }}
+            Commit: ${{ env.SOURCE_HASH }}
+            Config: ${{ env.CONFIG_NAME }}
+            Test config only: ${{ env.TEST_CONFIG_ONLY }}
+            CloseWRT-CI reference: https://github.com/ysuolmai/CloseWRT-CI

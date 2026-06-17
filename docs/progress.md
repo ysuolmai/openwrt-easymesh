@@ -296,6 +296,8 @@ configs/IPQ60XX-MESH-AC.txt
 configs/IPQ60XX-MESH-AP.txt
 configs/MT7981-MESH-AC.txt
 configs/MT7981-MESH-AP.txt
+configs/CLOSEWRT-MT7981-MESH-AC.txt
+configs/CLOSEWRT-MT7981-MESH-AP.txt
 ```
 
 Device profile selection now follows the upstream OpenWRT-CI config files instead of a local device subset:
@@ -303,9 +305,10 @@ Device profile selection now follows the upstream OpenWRT-CI config files instea
 ```text
 Config/IPQ60XX-WIFI-YES.txt
 Config/MEDIATEK-WIFI-YES.txt
+ysuolmai/CloseWRT-CI Config/MT7981.txt
 ```
 
-The full expanded symbol lists live in the local `configs/*.txt` files. MTK keeps the `sx_7981r128` profile in that list; because it is not provided by the source tree, `scripts/prepare-openwrt.sh` still injects its DTS, `filogic.mk` device entry, board network setup, and first-boot defaults.
+The full expanded symbol lists live in the local `configs/*.txt` files. MTK keeps the `sx_7981r128` profile in those lists. Standard MTK uses `scripts/prepare-openwrt.sh`; CloseWRT MT7981 uses `scripts/prepare-closewrt.sh` with the CloseWRT 6.6 DTS, PHY patch, `filogic.mk` device entry, board network/LED setup, and first-boot defaults.
 
 ## GitHub Actions
 
@@ -314,6 +317,7 @@ Workflows:
 ```text
 .github/workflows/build.yml
 .github/workflows/build-mtk.yml
+.github/workflows/build-closewrt-mtk.yml
 .github/workflows/clean.yml
 ```
 
@@ -326,16 +330,19 @@ Current behavior:
 - `Build MTK EasyMesh` runs both MT7981 AC and AP builds using matrix:
   - `MT7981-MESH-AC`
   - `MT7981-MESH-AP`
+- `Build CloseWRT MTK EasyMesh` runs both CloseWRT MT7981 AC and AP builds using matrix:
+  - `CLOSEWRT-MT7981-MESH-AC`
+  - `CLOSEWRT-MT7981-MESH-AP`
 - Inputs:
   - `source_repo`
-  - `source_branch` (`main` for IPQ, `owrt` for MTK)
+  - `source_branch` (`main` for IPQ, `owrt` for standard MTK, `openwrt-24.10-6.6` for CloseWRT MTK)
   - `test_config_only`
-- Default source repo is `https://github.com/VIKINGYFY/immortalwrt.git`.
+- Default source repo is `https://github.com/VIKINGYFY/immortalwrt.git`. CloseWRT MTK defaults to `https://github.com/Yuzhii0718/immortalwrt-mt798x-6.6-padavanonly.git` branch `openwrt-24.10-6.6`, matching `ysuolmai/CloseWRT-CI`.
 - AC and AP images clone `ysuolmai/luci-theme-shadcn` during prepare and select `CONFIG_PACKAGE_luci-theme-shadcn=y`.
 - This repo's AC targets select `easymesh-local-member` for full AC behavior. Other projects can select only `easymesh-controller` + `luci-app-easymesh` for a no-wifi/controller-only AC plugin.
 - Build cache is enabled for non-config-only runs, following upstream OpenWRT-CI: `.ccache`, `staging_dir/host*`, and `staging_dir/tool*` are cached and toolchain stamp files are refreshed after restore.
 - `config_name` manual selection was removed.
-- After `make defconfig`, workflow runs `scripts/check-openwrt-config.sh` to verify that the final `.config` still contains every target device symbol from the local upstream-synced `configs/*.txt` files, Wi-Fi driver/firmware symbols, required source-side support for `sx_7981r128`, KVR-capable `wpad-openssl`, DAWN, uMDNS, `batman-adv`, and the shadcn LuCI theme on AC/AP images.
+- After `make defconfig`, standard workflows run `scripts/check-openwrt-config.sh`; CloseWRT MTK runs `scripts/check-closewrt-config.sh`. They verify that the final `.config` still contains every target device symbol from the local upstream-synced `configs/*.txt` files, Wi-Fi driver/firmware symbols, required source-side support for `sx_7981r128`, KVR-capable `wpad-openssl`, DAWN, uMDNS, `batman-adv`, and the shadcn LuCI theme on AC/AP images.
 - Full firmware release collection follows the upstream OpenWRT-CI packaging style by collecting files from `bin/targets` while pruning package repositories. This keeps IPQ NAND factory outputs such as Redmi AX5 and ZN M2 `factory.ubi` without relying on a filename-extension filter.
 - `Clean Artifacts` deletes completed workflow runs, deletes config-only releases, and keeps only the latest full firmware release per config target.
 
