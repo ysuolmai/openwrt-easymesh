@@ -52,16 +52,12 @@ install_ipq_ap_ath11k_module_override() {
 }
 
 inject_sx_7981r128() {
-	local broken_uboot_patch="$OPENWRT_DIR/package/boot/uboot-mediatek/patches/472-add-globitel-bt-r320.patch"
 	local dts_src="$ROOT_DIR/target/mediatek/dts/mt7981b-sx-7981r128.dts"
 	local dts_dir="$OPENWRT_DIR/target/linux/mediatek/dts"
 	local filogic_mk="$OPENWRT_DIR/target/linux/mediatek/image/filogic.mk"
 	local board_network="$OPENWRT_DIR/target/linux/mediatek/filogic/base-files/etc/board.d/02_network"
 	local uci_defaults="$OPENWRT_DIR/package/base-files/files/etc/uci-defaults/98_sx_7981r128_init.sh"
 
-	if [ -f "$broken_uboot_patch" ]; then
-		rm -f "$broken_uboot_patch"
-	fi
 
 	[ -f "$dts_src" ] || {
 		echo "missing SX 7981R128 DTS: $dts_src" >&2
