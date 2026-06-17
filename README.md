@@ -84,7 +84,7 @@ Services -> EasyMesh
 
 ## 固件目标
 
-当前提供两组平台目标。
+当前提供两组平台目标。每个平台都同时提供 AC 和 AP 包，设备 profile 不再使用本仓库自己的设备子集，而是跟随 `ysuolmai/OpenWRT-CI` 里的上游配置文件。
 
 IPQ60XX：
 
@@ -93,15 +93,7 @@ IPQ60XX-MESH-AC
 IPQ60XX-MESH-AP
 ```
 
-设备白名单：
-
-```text
-redmi_ax5
-redmi_ax5-jdcloud
-jdcloud_re-ss-01
-qihoo_360v6
-zn_m2
-```
+设备列表来源：`Config/IPQ60XX-WIFI-YES.txt`。完整展开列表以 `configs/IPQ60XX-MESH-*.txt` 为准。
 
 MT7981：
 
@@ -110,13 +102,7 @@ MT7981-MESH-AC
 MT7981-MESH-AP
 ```
 
-MTK 设备白名单跟随上游 `OpenWRT-CI/Scripts/diy.sh`：
-
-```text
-sx_7981r128
-nokia_ea0326gmp
-cmcc_rax3000m
-```
+设备列表来源：`Config/MEDIATEK-WIFI-YES.txt`。完整展开列表以 `configs/MT7981-MESH-*.txt` 为准，并保留上游配置里的 `kmod-cryptodev` / `kmod-tls` 内核调整。
 
 其中 `sx_7981r128` 不是 `VIKINGYFY/immortalwrt` 源码自带 profile，本项目会在准备配置阶段按上游机制注入 DTS、`filogic.mk` 设备条目、基础网络和首次启动配置。
 
@@ -130,7 +116,7 @@ cmcc_rax3000m
 https://github.com/VIKINGYFY/immortalwrt.git
 ```
 
-IPQ workflow 默认分支是 `main`，因为该 fork 包含 `redmi_ax5`、`redmi_ax5-jdcloud`、`zn_m2` 等扩展 IPQ60XX 设备 profile 和对应 `ipq-wifi-*` BDF 包。
+IPQ workflow 默认分支是 `main`，并按上游 `Config/IPQ60XX-WIFI-YES.txt` 的设备列表选择 profile；各设备需要的 `ipq-wifi-*` BDF 包由对应 profile 选择。
 
 MTK workflow 单独放在 `.github/workflows/build-mtk.yml`，默认分支是 `owrt`，跟随上游 `MTK-ALL.yml`。
 
@@ -138,9 +124,9 @@ workflow 参考上游 OpenWRT-CI 启用构建缓存：非 `test_config_only` 构
 
 `make defconfig` 后 workflow 会运行 `scripts/check-openwrt-config.sh`，主动检查以下关键内容：
 
-- 目标设备 profile 是否存在
-- IPQ：`kmod-ath11k-ahb` / `kmod-ath11k-pci`、IPQ6018 firmware、各设备 `ipq-wifi-*` BDF 包
-- MTK：`kmod-mt7915e`、`kmod-mt7981-firmware`、`mt7981-wo-firmware`
+- 目标设备 profile 是否包含 `configs/*.txt` 中同步自上游的完整设备列表
+- IPQ：`kmod-ath11k-ahb` / `kmod-ath11k-pci`、IPQ6018 firmware；各设备 BDF 包由设备 profile 选择
+- MTK：`kmod-mt7915e`、`kmod-mt7981-firmware`、`mt7981-wo-firmware`、`kmod-cryptodev`、`kmod-tls`
 - `wpad-openssl`
 - `batman-adv` / `batctl`
 - DAWN / uMDNS

@@ -298,27 +298,14 @@ configs/MT7981-MESH-AC.txt
 configs/MT7981-MESH-AP.txt
 ```
 
-Current supported IPQ60XX device entries:
+Device profile selection now follows the upstream OpenWRT-CI config files instead of a local device subset:
 
 ```text
-redmi_ax5
-redmi_ax5-jdcloud
-jdcloud_re-ss-01
-qihoo_360v6
-zn_m2
+Config/IPQ60XX-WIFI-YES.txt
+Config/MEDIATEK-WIFI-YES.txt
 ```
 
-`zn_m2` is supported through the VIKINGYFY/immortalwrt fork profile and `ipq-wifi-zn_m2` package.
-
-Current MT7981 device whitelist follows upstream `OpenWRT-CI/Scripts/diy.sh`:
-
-```text
-sx_7981r128
-nokia_ea0326gmp
-cmcc_rax3000m
-```
-
-`nokia_ea0326gmp` and `cmcc_rax3000m` are source profiles in `VIKINGYFY/immortalwrt` `owrt`. `sx_7981r128` is injected during `scripts/prepare-openwrt.sh`, using the upstream DTS/profile mechanism from OpenWRT-CI.
+The full expanded symbol lists live in the local `configs/*.txt` files. MTK keeps the `sx_7981r128` profile in that list; because it is not provided by the source tree, `scripts/prepare-openwrt.sh` still injects its DTS, `filogic.mk` device entry, board network setup, and first-boot defaults.
 
 ## GitHub Actions
 
@@ -348,8 +335,8 @@ Current behavior:
 - This repo's AC targets select `easymesh-local-member` for full AC behavior. Other projects can select only `easymesh-controller` + `luci-app-easymesh` for a no-wifi/controller-only AC plugin.
 - Build cache is enabled for non-config-only runs, following upstream OpenWRT-CI: `.ccache`, `staging_dir/host*`, and `staging_dir/tool*` are cached and toolchain stamp files are refreshed after restore.
 - `config_name` manual selection was removed.
-- After `make defconfig`, workflow runs `scripts/check-openwrt-config.sh` to verify required device profiles, Wi-Fi driver/firmware symbols, source-side support files, KVR-capable `wpad-openssl`, DAWN, uMDNS, `batman-adv`, and the shadcn LuCI theme on AC/AP images.
-- Full firmware release collection follows the upstream OpenWRT-CI packaging style by collecting files from `bin/targets` while pruning package repositories. This keeps IPQ NAND factory outputs such as Redmi AX5 and ZN M2 `factory.ubi` without relying on a filename-extension whitelist.
+- After `make defconfig`, workflow runs `scripts/check-openwrt-config.sh` to verify that the final `.config` still contains every target device symbol from the local upstream-synced `configs/*.txt` files, Wi-Fi driver/firmware symbols, required source-side support for `sx_7981r128`, KVR-capable `wpad-openssl`, DAWN, uMDNS, `batman-adv`, and the shadcn LuCI theme on AC/AP images.
+- Full firmware release collection follows the upstream OpenWRT-CI packaging style by collecting files from `bin/targets` while pruning package repositories. This keeps IPQ NAND factory outputs such as Redmi AX5 and ZN M2 `factory.ubi` without relying on a filename-extension filter.
 - `Clean Artifacts` deletes completed workflow runs, deletes config-only releases, and keeps only the latest full firmware release per config target.
 
 Validation already done:
@@ -413,7 +400,7 @@ Implemented locally for MT7981 support:
 
 - Added `configs/MT7981-MESH-AC.txt` and `configs/MT7981-MESH-AP.txt`.
 - Added `.github/workflows/build-mtk.yml` with default source branch `owrt`, matching upstream `MTK-ALL.yml`.
-- Added MTK whitelist filtering in `scripts/prepare-openwrt.sh`: `sx_7981r128`, `nokia_ea0326gmp`, `cmcc_rax3000m`.
+- Removed local device filtering from `scripts/prepare-openwrt.sh`; IPQ and MTK target devices now follow the upstream OpenWRT-CI config files expanded in `configs/*.txt`.
 - Added `target/mediatek/dts/mt7981b-sx-7981r128.dts`.
 - Added SX 7981R128 injection into `target/linux/mediatek/image/filogic.mk`, `board.d/02_network`, and a first-boot uci-defaults script.
 - Updated `scripts/check-openwrt-config.sh` with separate IPQ and MTK validation paths.

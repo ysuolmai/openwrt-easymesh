@@ -51,12 +51,6 @@ install_ipq_ap_ath11k_module_override() {
 	printf '%s\n' 'ath11k nss_offload=0 frame_mode=2' > "$modules_dir/ath11k"
 }
 
-filter_ipq60xx_devices() {
-	sed -i "/^CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_/{
-		/\\(redmi_ax5\\|redmi_ax5-jdcloud\\|jdcloud_re-ss-01\\|qihoo_360v6\\|zn_m2\\)=y$/!d
-	}" "$OPENWRT_DIR/.config"
-}
-
 inject_sx_7981r128() {
 	local broken_uboot_patch="$OPENWRT_DIR/package/boot/uboot-mediatek/patches/472-add-globitel-bt-r320.patch"
 	local dts_src="$ROOT_DIR/target/mediatek/dts/mt7981b-sx-7981r128.dts"
@@ -169,33 +163,23 @@ EOF
 	chmod +x "$uci_defaults"
 }
 
-filter_mt7981_devices() {
-	sed -i "/^CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_/{
-		/\\(sx_7981r128\\|nokia_ea0326gmp\\|cmcc_rax3000m\\)=y$/!d
-	}" "$OPENWRT_DIR/.config"
-}
-
 clear_prepared_ath11k_module_override
 
 case "$CONFIG_NAME" in
 	IPQ60XX-MESH-AC)
 		install_shadcn_theme
-		filter_ipq60xx_devices
 		;;
 	IPQ60XX-MESH-AP)
 		install_shadcn_theme
 		install_ipq_ap_ath11k_module_override
-		filter_ipq60xx_devices
 		;;
 	MT7981-MESH-AC)
 		install_shadcn_theme
 		inject_sx_7981r128
-		filter_mt7981_devices
 		;;
 	MT7981-MESH-AP)
 		install_shadcn_theme
 		inject_sx_7981r128
-		filter_mt7981_devices
 		;;
 	*)
 		echo "unknown config target: $CONFIG_NAME" >&2
