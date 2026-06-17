@@ -83,9 +83,12 @@ require_closewrt_mt7981_target() {
 		CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_ \
 		"CloseWRT-CI MT7981 device list"
 
+	require_symbol CONFIG_MTK_CONNINFRA_APSOC
+	require_symbol CONFIG_MTK_CONNINFRA_APSOC_MT7981
 	require_symbol CONFIG_MTK_FIRST_IF_MT7981
 	require_symbol CONFIG_PACKAGE_luci-app-mtwifi-cfg
 	require_symbol CONFIG_PACKAGE_luci-app-turboacc-mtk
+	require_symbol CONFIG_PACKAGE_kmod-conninfra
 	require_symbol CONFIG_PACKAGE_kmod-mt_wifi
 	require_symbol CONFIG_PACKAGE_kmod-warp
 	require_symbol CONFIG_PACKAGE_kmod-mediatek_hnat
