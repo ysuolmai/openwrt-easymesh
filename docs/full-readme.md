@@ -52,7 +52,7 @@ AC 的 `Network mode` 控制本机网络角色：`Bridge` 模式下 WAN、LAN、
 - 根据本机是否存在 Wi-Fi 驱动或 `/etc/config/wireless` 决定是否执行
 - `local_member=0` 时保持 ath11k NSS offload 开启
 - `local_member=1` 时关闭 ath11k NSS offload，并应用 AC 本机 Wi-Fi / 802.11s / batman 配置；如果 ath11k 模块已加载，会自动安排一次重启让模块参数生效
-- IPQ AP 固件默认尝试 ath11k NSS mesh offload：启用 `ATH11K_NSS_MESH_SUPPORT` 和 `qca-nss-wifi-meshmgr`，不再预置 `nss_offload=0`；如果镜像缺少 mesh manager 模块，AP 首启会回退关闭 ath11k NSS offload
+- IPQ AC 和 AP 固件都编入 ath11k NSS mesh offload 支持（`ATH11K_NSS_MESH_SUPPORT` 和 `qca-nss-wifi-meshmgr`）；运行时不再由项目脚本改写 `nss_offload`，保留上游默认模块参数
 
 ### `luci-app-easymesh`
 
@@ -136,7 +136,7 @@ workflow 参考上游 OpenWRT-CI 启用构建缓存：非 `test_config_only` 构
 
 - 目标设备 profile 是否包含 `configs/*.txt` 中同步自上游的完整设备列表
 - IPQ：`kmod-ath11k-ahb` / `kmod-ath11k-pci`、IPQ6018 firmware；各设备 BDF 包由设备 profile 选择
-- IPQ AP：额外检查 ath11k NSS mesh offload 所需的 `ATH11K_NSS_MESH_SUPPORT`、`kmod-qca-nss-drv-wifi-meshmgr` 和 NSS Wi-Fi mesh driver flags
+- IPQ AC/AP：额外检查 ath11k NSS mesh offload 所需的 `ATH11K_NSS_MESH_SUPPORT`、`kmod-qca-nss-drv-wifi-meshmgr` 和 NSS Wi-Fi mesh driver flags
 - MTK：普通 MTK 检查 `kmod-mt7915e`、`kmod-mt7981-firmware`、`mt7981-wo-firmware`、`kmod-cryptodev`、`kmod-tls`；CloseWRT MTK 检查闭源 MTK Wi-Fi 栈和 `sx_7981r128` 注入
 - `wpad-openssl`
 - `batman-adv` / `batctl`

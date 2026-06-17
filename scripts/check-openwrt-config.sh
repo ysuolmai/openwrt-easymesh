@@ -112,17 +112,6 @@ require_file_exact() {
 	fi
 }
 
-reject_file_contains() {
-	local file="$1"
-	local token="$2"
-	local label="$3"
-
-	if [ -f "$file" ] && grep -q "$token" "$file"; then
-		echo "unexpected file content for ${label}: ${file}" >&2
-		missing=1
-	fi
-}
-
 require_common_mesh_packages() {
 	require_symbol CONFIG_PACKAGE_wpad-openssl
 	require_symbol CONFIG_PACKAGE_kmod-batman-adv
@@ -190,7 +179,7 @@ require_ap_packages() {
 	require_symbol CONFIG_PACKAGE_easymesh-agent
 }
 
-require_ipq_ap_nss_mesh_offload() {
+require_ipq_nss_mesh_offload() {
 	require_symbol CONFIG_ATH11K_NSS_SUPPORT
 	require_symbol CONFIG_ATH11K_NSS_MESH_SUPPORT
 	require_symbol CONFIG_PACKAGE_kmod-qca-nss-drv
@@ -198,9 +187,6 @@ require_ipq_ap_nss_mesh_offload() {
 	require_symbol CONFIG_NSS_DRV_WIFIOFFLOAD_ENABLE
 	require_symbol CONFIG_NSS_DRV_WIFI_EXT_VDEV_ENABLE
 	require_symbol CONFIG_NSS_DRV_WIFI_MESH_ENABLE
-	reject_file_contains "$openwrt_dir/files/etc/modules.d/ath11k" \
-		"nss_offload=0" \
-		"IPQ AP ath11k NSS mesh offload"
 }
 
 case "$config_name" in
@@ -208,12 +194,13 @@ case "$config_name" in
 		require_ipq60xx_target
 		require_common_mesh_packages
 		require_ac_packages
+		require_ipq_nss_mesh_offload
 		;;
 	IPQ60XX-MESH-AP)
 		require_ipq60xx_target
 		require_common_mesh_packages
 		require_ap_packages
-		require_ipq_ap_nss_mesh_offload
+		require_ipq_nss_mesh_offload
 		;;
 	MT7981-MESH-AC)
 		require_mt7981_target

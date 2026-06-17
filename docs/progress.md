@@ -21,8 +21,8 @@ Current direction:
 - When `pairing_enabled=0`, unknown APs cannot register; known APs can keep updating `last_seen` and pulling config.
 - AC can run in `Bridge` mode or `Gateway` mode. AP always behaves as a bridge node.
 - `easymesh-controller` can run as a controller-only plugin on no-wifi hardware. `easymesh-local-member` adds AC local mesh support for Wi-Fi hardware.
-- IPQ managed AP images now try ath11k NSS mesh offload by enabling `ATH11K_NSS_MESH_SUPPORT` and `qca-nss-wifi-meshmgr`; they no longer inject an `nss_offload=0` rootfs override. AP first boot falls back to disabling ath11k NSS offload only if the mesh manager module is missing.
-- AC defaults to gateway mode and applies the desired LAN network during first boot so the management address is reachable immediately. AC controller-only mode keeps ath11k NSS offload enabled; when `local_member=1` and local Wi-Fi is detected, AC still disables ath11k NSS offload until AC local-member NSS mesh support is validated separately.
+- IPQ AC and AP images include ath11k NSS mesh offload support by enabling `ATH11K_NSS_MESH_SUPPORT` and `qca-nss-wifi-meshmgr`; project scripts no longer rewrite `nss_offload` at runtime and leave the upstream ath11k module defaults in charge.
+- AC defaults to gateway mode and applies the desired LAN network during first boot so the management address is reachable immediately.
 
 Latest implemented behavior:
 
@@ -222,7 +222,6 @@ Path: `package/easymesh-local-member/`
 Provides:
 
 - `/usr/sbin/easymesh-apply-local`
-- `/etc/uci-defaults/91-easymesh-local-member-enable`
 
 Current behavior:
 
@@ -230,7 +229,7 @@ Current behavior:
 - Depends on `easymesh-agent`, so it can reuse the same apply helper as APs.
 - Detects local Wi-Fi by checking `/etc/config/wireless`, `/sys/class/ieee80211`, or `iw phy`.
 - Skips local apply on no-wifi hardware even if installed.
-- Keeps ath11k NSS offload enabled while `local_member=0`; disables it while `local_member=1`, scheduling one reboot if ath11k was already loaded.
+- Leaves ath11k NSS offload at the upstream module default; local-member switching no longer rewrites `nss_offload` at runtime.
 
 ### `easymesh-agent`
 
@@ -380,8 +379,8 @@ Implemented design:
 - `easymesh-agent-apply --local-ac` applies Wi-Fi APs, 802.11s backhaul, `batman-adv`, and DAWN while preserving AC LAN/WAN/DHCP/firewall behavior. It removes existing LAN AP Wi-Fi interfaces such as the default `ImmortalWrt` SSID so the AC only advertises the configured mesh client SSID.
 - Normal managed AP agent service is disabled on AC images so AC does not register to itself as a normal AP.
 - Local mesh member mode is explicit through LuCI or `/usr/sbin/easymesh-apply-local`; first boot does not broadcast placeholder Wi-Fi credentials automatically.
-- IPQ AP builds no longer write `ath11k nss_offload=0 frame_mode=2` into the image rootfs. AP builds are development-first and try upstream ath11k NSS mesh offload for the 802.11s backhaul path.
-- AC first boot now directly applies the desired local AC network mode from `/etc/config/easymesh`; gateway mode should bring up `192.168.50.1/24` with LAN DHCP instead of only storing desired config. AC still disables ath11k NSS offload while `local_member=1` until AC local-member NSS mesh support is validated separately.
+- IPQ AC and AP builds no longer write `ath11k nss_offload=0 frame_mode=2` into the image rootfs. They compile NSS mesh offload support and rely on upstream ath11k module defaults for runtime offload state.
+- AC first boot now directly applies the desired local AC network mode from `/etc/config/easymesh`; gateway mode should bring up `192.168.50.1/24` with LAN DHCP instead of only storing desired config.
 
 Important safety rule:
 
