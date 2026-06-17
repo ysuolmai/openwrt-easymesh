@@ -123,11 +123,13 @@ require_closewrt_mt7981_target() {
 	require_config_value CONFIG_MTK_RT_FIRST_CARD_EEPROM '"flash"'
 	require_symbol CONFIG_MTK_SECOND_IF_NONE
 	require_symbol CONFIG_MTK_THIRD_IF_NONE
+	require_symbol CONFIG_MTK_MGMT_TXPWR_CTRL
 	require_symbol CONFIG_MTK_WIFI_FW_BIN_LOAD
 	require_config_value CONFIG_MTK_WHNAT_SUPPORT m
 	require_symbol CONFIG_MTK_WARP_V2
 	require_config_value CONFIG_WARP_VERSION 2
 	require_config_value CONFIG_WARP_CHIPSET '"mt7981"'
+	require_symbol CONFIG_PACKAGE_luci-app-eqos-mtk
 	require_symbol CONFIG_PACKAGE_luci-app-mtwifi-cfg
 	require_symbol CONFIG_PACKAGE_mtwifi-cfg
 	require_symbol CONFIG_PACKAGE_datconf
