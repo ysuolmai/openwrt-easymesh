@@ -111,9 +111,27 @@ require_closewrt_mt7981_target() {
 	require_symbol CONFIG_MTK_CONNINFRA_APSOC
 	require_symbol CONFIG_MTK_CONNINFRA_APSOC_MT7981
 	require_symbol CONFIG_MTK_FIRST_IF_MT7981
+	require_symbol CONFIG_first_card
+	require_symbol CONFIG_MTK_SUPPORT_OPENWRT
+	require_symbol CONFIG_MTK_WIFI_DRIVER
+	require_config_value CONFIG_MTK_MT_WIFI m
+	require_config_value CONFIG_MTK_WIFI_MODE_AP m
+	require_config_value CONFIG_MTK_MT_AP_SUPPORT m
+	require_symbol CONFIG_MTK_WIFI_BASIC_FUNC
+	require_config_value CONFIG_MTK_MT_WIFI_PATH '"mt_wifi"'
+	require_symbol CONFIG_MTK_FIRST_IF_EEPROM_FLASH
+	require_config_value CONFIG_MTK_RT_FIRST_CARD_EEPROM '"flash"'
+	require_symbol CONFIG_MTK_SECOND_IF_NONE
+	require_symbol CONFIG_MTK_THIRD_IF_NONE
+	require_symbol CONFIG_MTK_WIFI_FW_BIN_LOAD
+	require_config_value CONFIG_MTK_WHNAT_SUPPORT m
+	require_symbol CONFIG_MTK_WARP_V2
 	require_config_value CONFIG_WARP_VERSION 2
 	require_config_value CONFIG_WARP_CHIPSET '"mt7981"'
 	require_symbol CONFIG_PACKAGE_luci-app-mtwifi-cfg
+	require_symbol CONFIG_PACKAGE_mtwifi-cfg
+	require_symbol CONFIG_PACKAGE_datconf
+	require_symbol CONFIG_PACKAGE_datconf-lua
 	require_symbol CONFIG_PACKAGE_luci-app-turboacc-mtk
 	require_symbol CONFIG_PACKAGE_kmod-conninfra
 	require_symbol CONFIG_PACKAGE_kmod-mt_wifi

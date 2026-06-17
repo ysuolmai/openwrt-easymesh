@@ -346,6 +346,7 @@ Current behavior:
 - After `make defconfig`, standard workflows run `scripts/check-openwrt-config.sh`; CloseWRT MTK runs `scripts/check-closewrt-config.sh`. They verify that the final `.config` still contains every target device symbol from the local upstream-synced `configs/*.txt` files, Wi-Fi driver/firmware symbols, required source-side support for `sx_7981r128`, KVR-capable `wpad-openssl`, DAWN, uMDNS, `batman-adv`, and the shadcn LuCI theme on AC/AP images.
 - Full firmware release collection follows the upstream OpenWRT-CI packaging style by collecting files from `bin/targets` while pruning package repositories. This keeps IPQ NAND factory outputs such as Redmi AX5 and ZN M2 `factory.ubi` without relying on a filename-extension filter.
 - `Clean Artifacts` deletes completed workflow runs, deletes config-only releases, and keeps only the latest full firmware release per config target.
+- CloseWRT MT7981 configs carry the closed MTK Wi-Fi Kconfig matrix from CloseWRT-CI `GENERAL.txt` so `kmod-mt_wifi` actually builds `mt_wifi.ko`.
 
 Validation already done:
 
