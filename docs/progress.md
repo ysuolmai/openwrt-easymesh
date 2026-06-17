@@ -317,12 +317,14 @@ Workflows:
 .github/workflows/build.yml
 .github/workflows/build-mtk.yml
 .github/workflows/build-closewrt-mtk.yml
+.github/workflows/build-all.yml
 .github/workflows/clean.yml
 ```
 
 Current behavior:
 
-- Manual `workflow_dispatch` only.
+- Build workflows can run manually through `workflow_dispatch`; the three platform workflows also support `workflow_call`.
+- `Build All EasyMesh` starts the IPQ, MTK, and CloseWRT MTK workflows as three parallel jobs.
 - `Build IPQ EasyMesh` runs both IPQ AC and AP builds using matrix:
   - `IPQ60XX-MESH-AC`
   - `IPQ60XX-MESH-AP`

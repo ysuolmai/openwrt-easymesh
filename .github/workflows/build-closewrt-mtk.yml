@@ -18,6 +18,23 @@ on:
         default: false
         required: true
         type: boolean
+  workflow_call:
+    inputs:
+      source_repo:
+        description: CloseWRT MT7981 source repository
+        default: https://github.com/Yuzhii0718/immortalwrt-mt798x-6.6-padavanonly.git
+        required: false
+        type: string
+      source_branch:
+        description: Source branch
+        default: openwrt-24.10-6.6
+        required: false
+        type: string
+      test_config_only:
+        description: Generate .config only
+        default: false
+        required: false
+        type: boolean
 
 permissions:
   contents: write

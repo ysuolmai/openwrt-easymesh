@@ -159,6 +159,14 @@ MTK 编译：
 4. workflow 会同时构建 `MT7981-MESH-AC` 和 `MT7981-MESH-AP`
 5. 如只想验证配置，勾选 `test_config_only`
 
+一键同时启动三类编译：
+
+1. 打开 GitHub 仓库的 `Actions`
+2. 选择 `Build All EasyMesh`
+3. 点击 `Run workflow`
+4. workflow 会并行启动 IPQ、MTK、CloseWRT MTK 三类编译；每类内部继续同时构建 AC 和 AP
+5. 如只想验证配置，勾选 `test_config_only`
+
 CloseWRT MTK 编译：
 
 1. 打开 GitHub 仓库的 `Actions`

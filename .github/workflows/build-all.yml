@@ -1,0 +1,69 @@
+name: Build All EasyMesh
+
+on:
+  workflow_dispatch:
+    inputs:
+      ipq_source_repo:
+        description: IPQ OpenWrt/ImmortalWrt source repository
+        default: https://github.com/VIKINGYFY/immortalwrt.git
+        required: true
+        type: string
+      ipq_source_branch:
+        description: IPQ source branch
+        default: main
+        required: true
+        type: string
+      mtk_source_repo:
+        description: MTK OpenWrt/ImmortalWrt source repository
+        default: https://github.com/VIKINGYFY/immortalwrt.git
+        required: true
+        type: string
+      mtk_source_branch:
+        description: MTK source branch
+        default: owrt
+        required: true
+        type: string
+      closewrt_source_repo:
+        description: CloseWRT MT7981 source repository
+        default: https://github.com/Yuzhii0718/immortalwrt-mt798x-6.6-padavanonly.git
+        required: true
+        type: string
+      closewrt_source_branch:
+        description: CloseWRT MT7981 source branch
+        default: openwrt-24.10-6.6
+        required: true
+        type: string
+      test_config_only:
+        description: Generate .config only
+        default: false
+        required: true
+        type: boolean
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  ipq:
+    name: IPQ60XX
+    uses: ./.github/workflows/build.yml
+    with:
+      source_repo: ${{ inputs.ipq_source_repo }}
+      source_branch: ${{ inputs.ipq_source_branch }}
+      test_config_only: ${{ inputs.test_config_only }}
+
+  mtk:
+    name: MT7981
+    uses: ./.github/workflows/build-mtk.yml
+    with:
+      source_repo: ${{ inputs.mtk_source_repo }}
+      source_branch: ${{ inputs.mtk_source_branch }}
+      test_config_only: ${{ inputs.test_config_only }}
+
+  closewrt-mtk:
+    name: CloseWRT MT7981
+    uses: ./.github/workflows/build-closewrt-mtk.yml
+    with:
+      source_repo: ${{ inputs.closewrt_source_repo }}
+      source_branch: ${{ inputs.closewrt_source_branch }}
+      test_config_only: ${{ inputs.test_config_only }}

@@ -18,6 +18,23 @@ on:
         default: false
         required: true
         type: boolean
+  workflow_call:
+    inputs:
+      source_repo:
+        description: OpenWrt/ImmortalWrt source repository
+        default: https://github.com/VIKINGYFY/immortalwrt.git
+        required: false
+        type: string
+      source_branch:
+        description: Source branch
+        default: main
+        required: false
+        type: string
+      test_config_only:
+        description: Generate .config only
+        default: false
+        required: false
+        type: boolean
 
 permissions:
   contents: write

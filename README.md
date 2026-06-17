@@ -41,6 +41,7 @@ MTK 构建会保留并注入 `sx_7981r128` 设备支持。
 
 在 GitHub Actions 手动运行对应 workflow：
 
+- `Build All EasyMesh`：同时启动下面三类编译任务
 - `Build IPQ EasyMesh`：构建 IPQ60XX AC/AP
 - `Build MTK EasyMesh`：构建普通 MT7981 AC/AP
 - `Build CloseWRT MTK EasyMesh`：构建 CloseWRT MT7981 AC/AP
