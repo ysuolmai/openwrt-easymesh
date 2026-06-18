@@ -8,6 +8,10 @@ if [ -f /etc/config/easymesh ]; then
 	/etc/init.d/easymesh-agent disable >/dev/null 2>&1 || true
 	/etc/init.d/easymesh-backhaul enable >/dev/null 2>&1 || true
 else
+	if [ -f /usr/lib/easymesh/ath11k-nss.sh ]; then
+		. /usr/lib/easymesh/ath11k-nss.sh
+		ath11k_nss_set_offload 0 "managed AP default" || true
+	fi
 	/usr/sbin/easymesh-agent-apply --network-only >/dev/null 2>&1 || true
 	/etc/init.d/easymesh-agent enable >/dev/null 2>&1 || true
 	/etc/init.d/easymesh-backhaul enable >/dev/null 2>&1 || true

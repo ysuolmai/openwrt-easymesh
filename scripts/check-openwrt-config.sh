@@ -112,6 +112,12 @@ require_file_exact() {
 	fi
 }
 
+require_ipq_ath11k_module_override() {
+	require_file_exact "$openwrt_dir/files/etc/modules.d/ath11k" \
+		"ath11k nss_offload=0 frame_mode=2" \
+		"IPQ ath11k default NSS offload state"
+}
+
 require_common_mesh_packages() {
 	require_symbol CONFIG_PACKAGE_wpad-openssl
 	require_symbol CONFIG_PACKAGE_kmod-batman-adv
@@ -191,11 +197,13 @@ case "$config_name" in
 		require_ipq60xx_target
 		require_common_mesh_packages
 		require_ac_packages
+		require_ipq_ath11k_module_override
 		;;
 	IPQ60XX-MESH-AP)
 		require_ipq60xx_target
 		require_common_mesh_packages
 		require_ap_packages
+		require_ipq_ath11k_module_override
 		;;
 	MT7981-MESH-AC)
 		require_mt7981_target

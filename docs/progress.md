@@ -21,7 +21,7 @@ Current direction:
 - When `pairing_enabled=0`, unknown APs cannot register; known APs can keep updating `last_seen` and pulling config.
 - AC can run in `Bridge` mode or `Gateway` mode. AP always behaves as a bridge node.
 - `easymesh-controller` can run as a controller-only plugin on no-wifi hardware. `easymesh-local-member` adds AC local mesh support for Wi-Fi hardware.
-- IPQ AC and AP images include ath11k NSS mesh offload support by enabling `ATH11K_NSS_MESH_SUPPORT` and `qca-nss-wifi-meshmgr`; project scripts no longer rewrite `nss_offload` at runtime and leave the upstream ath11k module defaults in charge.
+- IPQ AP images default to `ath11k nss_offload=0 frame_mode=2`. IPQ AC images default to off and switch at runtime: `local_member=0` writes `nss_offload=1`, while `local_member=1` writes `nss_offload=0`.
 - AC defaults to gateway mode and applies the desired LAN network during first boot so the management address is reachable immediately.
 
 Latest implemented behavior:
@@ -229,7 +229,7 @@ Current behavior:
 - Depends on `easymesh-agent`, so it can reuse the same apply helper as APs.
 - Detects local Wi-Fi by checking `/etc/config/wireless`, `/sys/class/ieee80211`, or `iw phy`.
 - Skips local apply on no-wifi hardware even if installed.
-- Leaves ath11k NSS offload at the upstream module default; local-member switching no longer rewrites `nss_offload` at runtime.
+- Switches ath11k NSS offload from AC local-member state: controller-only mode enables it, local mesh member mode disables it.
 
 ### `easymesh-agent`
 
@@ -382,7 +382,7 @@ Implemented design:
 - `easymesh-agent-apply --local-ac` applies Wi-Fi APs, 802.11s backhaul, `batman-adv`, and DAWN while preserving AC LAN/WAN/DHCP/firewall behavior. It removes existing LAN AP Wi-Fi interfaces such as the default `ImmortalWrt` SSID so the AC only advertises the configured mesh client SSID.
 - Normal managed AP agent service is disabled on AC images so AC does not register to itself as a normal AP.
 - Local mesh member mode is explicit through LuCI or `/usr/sbin/easymesh-apply-local`; first boot does not broadcast placeholder Wi-Fi credentials automatically.
-- IPQ AC and AP builds no longer write `ath11k nss_offload=0 frame_mode=2` into the image rootfs. They compile NSS mesh offload support and rely on upstream ath11k module defaults for runtime offload state.
+- IPQ AC and AP builds write `ath11k nss_offload=0 frame_mode=2` into the image rootfs by default. AC local-member switching can change the module file to `nss_offload=1` only when the AC is not participating in Mesh.
 - AC first boot now directly applies the desired local AC network mode from `/etc/config/easymesh`; gateway mode should bring up `192.168.10.1/24` with LAN DHCP instead of only storing desired config.
 
 Important safety rule:

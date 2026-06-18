@@ -3,6 +3,7 @@
 set -e
 
 . /usr/share/libubox/jshn.sh
+[ ! -f /usr/lib/easymesh/ath11k-nss.sh ] || . /usr/lib/easymesh/ath11k-nss.sh
 
 uci_get() {
 	uci -q get "$1" 2>/dev/null || printf '%s' "$2"
@@ -87,6 +88,11 @@ json_dump > "$tmp"
 
 if [ "$local_member" = "1" ] && [ "$local_wifi" = "1" ]; then
 	rm -f /etc/easymesh/pending-local-apply
+	if command -v ath11k_nss_set_offload >/dev/null 2>&1 &&
+		ath11k_nss_set_offload 0 "AC local mesh member enable" "/etc/easymesh/pending-local-apply"; then
+		logger -t easymesh-controller "scheduled reboot before applying local mesh member config"
+		exit 0
+	fi
 	/usr/sbin/easymesh-agent-apply --local-ac "$tmp"
 	logger -t easymesh-controller "applied local mesh member config"
 else
@@ -95,6 +101,9 @@ else
 		touch /etc/easymesh/pending-local-apply
 	else
 		rm -f /etc/easymesh/pending-local-apply
+		if command -v ath11k_nss_set_offload >/dev/null 2>&1; then
+			ath11k_nss_set_offload 1 "AC controller mode" || true
+		fi
 	fi
 	/usr/sbin/easymesh-agent-apply --local-ac --network-only "$tmp"
 	logger -t easymesh-controller "applied AC network config"
