@@ -96,7 +96,7 @@ return view.extend({
 		o.default = '1';
 		if (localMemberSupported) {
 			o = s.option(form.Flag, 'local_member', _('Enable AC local mesh member'));
-			o.default = '0';
+			o.default = '1';
 			o.cfgvalue = function() {
 				return localMemberActive ? '1' : '0';
 			};

@@ -1,7 +1,7 @@
 config controller 'main'
 	option enabled '1'
 	option pairing_enabled '1'
-	option local_member '0'
+	option local_member '1'
 	option network_mode 'gateway'
 	option network_cidr '192.168.10.0/24'
 

@@ -28,9 +28,11 @@ has_local_wifi() {
 	has_wireless_config || has_wifi_driver
 }
 
-if ! has_local_wifi; then
-	logger -t easymesh-controller "local mesh member support skipped: no local Wi-Fi detected"
-	exit 0
+local_wifi=0
+if has_local_wifi; then
+	local_wifi=1
+else
+	logger -t easymesh-controller "local mesh member Wi-Fi skipped: no local Wi-Fi detected"
 fi
 
 local_member="$(uci_get easymesh.main.local_member 0)"
@@ -48,7 +50,7 @@ json_add_string mode "$network_mode"
 json_add_string cidr "$network_cidr"
 json_close_object
 
-if [ "$local_member" = "1" ]; then
+if [ "$local_member" = "1" ] && [ "$local_wifi" = "1" ]; then
 	json_add_object wifi
 	json_add_string ssid "$ssid_default"
 	json_add_string ssid_2g "$(uci_get easymesh.main.ssid_2g "$ssid_default")"
@@ -83,11 +85,17 @@ fi
 
 json_dump > "$tmp"
 
-if [ "$local_member" = "1" ]; then
+if [ "$local_member" = "1" ] && [ "$local_wifi" = "1" ]; then
+	rm -f /etc/easymesh/pending-local-apply
 	/usr/sbin/easymesh-agent-apply --local-ac "$tmp"
 	logger -t easymesh-controller "applied local mesh member config"
 else
-	rm -f /etc/easymesh/pending-local-apply
+	if [ "$local_member" = "1" ]; then
+		mkdir -p /etc/easymesh
+		touch /etc/easymesh/pending-local-apply
+	else
+		rm -f /etc/easymesh/pending-local-apply
+	fi
 	/usr/sbin/easymesh-agent-apply --local-ac --network-only "$tmp"
 	logger -t easymesh-controller "applied AC network config"
 fi
