@@ -123,7 +123,7 @@ return view.extend({
 		o.cfgvalue = currentWifiValue(wifi.ssid_5g, 'ssid_5g', legacySsid);
 		o = s.option(form.Value, 'key', _('Client password'));
 		o.password = true;
-		o.cfgvalue = currentWifiValue(wifi.key, 'key', 'change-this-client-password');
+		o.cfgvalue = currentWifiValue(wifi.key, 'key', '12345678');
 		o = s.option(form.Value, 'country', _('Country'));
 		o.cfgvalue = currentWifiValue(wifi.country, 'country', 'US');
 		o = s.option(form.Value, 'mobility_domain', _('Mobility domain'));
@@ -139,7 +139,7 @@ return view.extend({
 		o.cfgvalue = currentWifiValue(wifi.mesh_id, 'mesh_id', 'openwrt-easymesh-backhaul');
 		o = s.option(form.Value, 'mesh_key', _('Mesh key'));
 		o.password = true;
-		o.cfgvalue = currentWifiValue(wifi.mesh_key, 'mesh_key', 'change-this-mesh-password');
+		o.cfgvalue = currentWifiValue(wifi.mesh_key, 'mesh_key', '12345678');
 		o = s.option(form.ListValue, 'band', _('Wireless backhaul band'));
 		o.value('5g', '5 GHz');
 		o.value('2g', '2.4 GHz');

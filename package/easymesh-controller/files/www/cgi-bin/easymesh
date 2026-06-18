@@ -68,7 +68,7 @@ render_config() {
     "ssid": "$ssid_default",
     "ssid_2g": "$(uci_get easymesh.main.ssid_2g "$ssid_default")",
     "ssid_5g": "$(uci_get easymesh.main.ssid_5g "$ssid_default")",
-    "key": "$(uci_get easymesh.main.key change-this-client-password)",
+    "key": "$(uci_get easymesh.main.key 12345678)",
     "country": "$(uci_get easymesh.main.country US)",
     "encryption": "$(uci_get easymesh.main.encryption psk2+ccmp)",
     "ieee80211k": "$(uci_get easymesh.main.ieee80211k 1)",
@@ -79,7 +79,7 @@ render_config() {
   },
   "backhaul": {
     "mesh_id": "$(uci_get easymesh.main.mesh_id openwrt-easymesh-backhaul)",
-    "mesh_key": "$(uci_get easymesh.main.mesh_key change-this-mesh-password)",
+    "mesh_key": "$(uci_get easymesh.main.mesh_key 12345678)",
     "band": "$(uci_get easymesh.main.band 5g)",
     "channel_5g": "$(uci_get easymesh.main.channel_5g 149)",
     "channel_2g": "$(uci_get easymesh.main.channel_2g 6)",

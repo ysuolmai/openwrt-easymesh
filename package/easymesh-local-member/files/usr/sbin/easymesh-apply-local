@@ -55,7 +55,7 @@ if [ "$local_member" = "1" ] && [ "$local_wifi" = "1" ]; then
 	json_add_string ssid "$ssid_default"
 	json_add_string ssid_2g "$(uci_get easymesh.main.ssid_2g "$ssid_default")"
 	json_add_string ssid_5g "$(uci_get easymesh.main.ssid_5g "$ssid_default")"
-	json_add_string key "$(uci_get easymesh.main.key change-this-client-password)"
+	json_add_string key "$(uci_get easymesh.main.key 12345678)"
 	json_add_string country "$(uci_get easymesh.main.country US)"
 	json_add_string encryption "$(uci_get easymesh.main.encryption psk2+ccmp)"
 	json_add_string ieee80211k "$(uci_get easymesh.main.ieee80211k 1)"
@@ -67,7 +67,7 @@ if [ "$local_member" = "1" ] && [ "$local_wifi" = "1" ]; then
 
 	json_add_object backhaul
 	json_add_string mesh_id "$(uci_get easymesh.main.mesh_id openwrt-easymesh-backhaul)"
-	json_add_string mesh_key "$(uci_get easymesh.main.mesh_key change-this-mesh-password)"
+	json_add_string mesh_key "$(uci_get easymesh.main.mesh_key 12345678)"
 	json_add_string band "$(uci_get easymesh.main.band 5g)"
 	json_add_string channel_5g "$(uci_get easymesh.main.channel_5g 149)"
 	json_add_string channel_2g "$(uci_get easymesh.main.channel_2g 6)"
