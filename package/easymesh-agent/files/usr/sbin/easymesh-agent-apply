@@ -331,21 +331,57 @@ enable_lan_dhcp() {
 	uci -q delete dhcp.lan.ndp >/dev/null 2>&1 || true
 }
 
-ensure_lan_firewall_access() {
-	local i name
+ensure_firewall_forwarding() {
+	local src="$1"
+	local dest="$2"
+	local i existing_src existing_dest
+
+	[ -n "$src" ] || return 0
+	[ -n "$dest" ] || return 0
+	[ "$src" != "$dest" ] || return 0
 
 	i=0
-	while uci get "firewall.@zone[$i]" >/dev/null 2>&1; do
-		name="$(uci -q get "firewall.@zone[$i].name" 2>/dev/null || true)"
-		if [ "$name" = "lan" ]; then
-			uci -q del_list "firewall.@zone[$i].network=lan" >/dev/null 2>&1 || true
-			uci -q add_list "firewall.@zone[$i].network=lan"
-			uci -q set "firewall.@zone[$i].input=ACCEPT"
-			uci -q set "firewall.@zone[$i].output=ACCEPT"
-			uci -q set "firewall.@zone[$i].forward=ACCEPT"
+	while uci get "firewall.@forwarding[$i]" >/dev/null 2>&1; do
+		existing_src="$(uci -q get "firewall.@forwarding[$i].src" 2>/dev/null || true)"
+		existing_dest="$(uci -q get "firewall.@forwarding[$i].dest" 2>/dev/null || true)"
+		if [ "$existing_src" = "$src" ] && [ "$existing_dest" = "$dest" ]; then
 			return 0
 		fi
 		i=$((i + 1))
+	done
+
+	uci -q add firewall forwarding >/dev/null
+	uci -q set firewall.@forwarding[-1].src="$src"
+	uci -q set firewall.@forwarding[-1].dest="$dest"
+}
+
+allow_all_firewall_access() {
+	local i name zone_names src dest
+
+	uci -q set firewall.@defaults[0].input=ACCEPT
+	uci -q set firewall.@defaults[0].output=ACCEPT
+	uci -q set firewall.@defaults[0].forward=ACCEPT
+	uci -q set firewall.@defaults[0].synflood_protect=0
+
+	i=0
+	zone_names=""
+	while uci get "firewall.@zone[$i]" >/dev/null 2>&1; do
+		name="$(uci -q get "firewall.@zone[$i].name" 2>/dev/null || true)"
+		uci -q set "firewall.@zone[$i].input=ACCEPT"
+		uci -q set "firewall.@zone[$i].output=ACCEPT"
+		uci -q set "firewall.@zone[$i].forward=ACCEPT"
+		if [ "$name" = "lan" ]; then
+			uci -q del_list "firewall.@zone[$i].network=lan" >/dev/null 2>&1 || true
+			uci -q add_list "firewall.@zone[$i].network=lan"
+		fi
+		[ -n "$name" ] && zone_names="$zone_names $name"
+		i=$((i + 1))
+	done
+
+	for src in $zone_names; do
+		for dest in $zone_names; do
+			ensure_firewall_forwarding "$src" "$dest"
+		done
 	done
 	return 0
 }
@@ -385,7 +421,7 @@ apply_network_config() {
 			;;
 	esac
 
-	ensure_lan_firewall_access
+	allow_all_firewall_access
 }
 
 . /lib/functions.sh
