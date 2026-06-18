@@ -2,7 +2,7 @@
 
 set -eu
 
-DEFAULT_AC_HOST="192.168.50.1"
+DEFAULT_AC_HOST="192.168.10.1"
 DEFAULT_AC_PATH="/cgi-bin/easymesh"
 AC_CACHE="/etc/easymesh-agent/ac_url"
 MDNS_SERVICE="_easymesh._tcp"

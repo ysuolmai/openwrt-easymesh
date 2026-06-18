@@ -331,6 +331,25 @@ enable_lan_dhcp() {
 	uci -q delete dhcp.lan.ndp >/dev/null 2>&1 || true
 }
 
+ensure_lan_firewall_access() {
+	local i name
+
+	i=0
+	while uci get "firewall.@zone[$i]" >/dev/null 2>&1; do
+		name="$(uci -q get "firewall.@zone[$i].name" 2>/dev/null || true)"
+		if [ "$name" = "lan" ]; then
+			uci -q del_list "firewall.@zone[$i].network=lan" >/dev/null 2>&1 || true
+			uci -q add_list "firewall.@zone[$i].network=lan"
+			uci -q set "firewall.@zone[$i].input=ACCEPT"
+			uci -q set "firewall.@zone[$i].output=ACCEPT"
+			uci -q set "firewall.@zone[$i].forward=ACCEPT"
+			return 0
+		fi
+		i=$((i + 1))
+	done
+	return 0
+}
+
 apply_network_config() {
 	local mode="$1"
 	local include_bat0="${2:-1}"
@@ -365,19 +384,21 @@ apply_network_config() {
 			disable_lan_dhcp
 			;;
 	esac
+
+	ensure_lan_firewall_access
 }
 
 . /lib/functions.sh
 
 if [ "$network_only" = "1" ]; then
 	network_mode="$(jget '@.network.mode' gateway)"
-	network_cidr="$(jget '@.network.cidr' 192.168.50.0/24)"
+	network_cidr="$(jget '@.network.cidr' 192.168.10.0/24)"
 	[ "$local_ac" = "1" ] || network_mode="bridge"
 	lan_prefix="${network_cidr#*/}"
 	lan_network="${network_cidr%/*}"
 	case "$lan_network" in
 		*.*.*.*) lan_ip="${lan_network%.*}.1" ;;
-		*) lan_ip="192.168.50.1"; lan_prefix="24" ;;
+		*) lan_ip="192.168.10.1"; lan_prefix="24" ;;
 	esac
 	[ -n "$lan_prefix" ] || lan_prefix="24"
 	lan_netmask="$(prefix_to_netmask "$lan_prefix")"
@@ -393,9 +414,11 @@ if [ "$network_only" = "1" ]; then
 	uci commit wireless
 	uci commit network
 	uci commit dhcp || true
+	uci commit firewall || true
 	/etc/init.d/dnsmasq restart >/dev/null 2>&1 || true
 	/etc/init.d/odhcpd restart >/dev/null 2>&1 || true
-	/etc/init.d/network reload >/dev/null 2>&1 || true
+	/etc/init.d/firewall restart >/dev/null 2>&1 || true
+	/etc/init.d/network restart >/dev/null 2>&1 || true
 	wifi reload >/dev/null 2>&1 || true
 	logger -t easymesh-agent "applied network-only config (network_mode=$network_mode)"
 	/etc/init.d/easymesh-backhaul enable >/dev/null 2>&1 || true
@@ -427,7 +450,7 @@ htmode_2g="$(jget '@.backhaul.htmode_2g' HE20)"
 wired_preferred="$(jget '@.backhaul.wired_preferred' 1)"
 
 network_mode="$(jget '@.network.mode' gateway)"
-network_cidr="$(jget '@.network.cidr' 192.168.50.0/24)"
+network_cidr="$(jget '@.network.cidr' 192.168.10.0/24)"
 lan_prefix="${network_cidr#*/}"
 lan_network="${network_cidr%/*}"
 case "$lan_network" in
@@ -435,7 +458,7 @@ case "$lan_network" in
 		lan_ip="${lan_network%.*}.1"
 		;;
 	*)
-		lan_ip="192.168.50.1"
+		lan_ip="192.168.10.1"
 		lan_prefix="24"
 		;;
 esac
@@ -528,10 +551,12 @@ fi
 
 uci commit network
 uci commit dhcp || true
+uci commit firewall || true
 uci commit wireless
 uci commit dawn || true
 /etc/init.d/dnsmasq restart >/dev/null 2>&1 || true
 /etc/init.d/odhcpd restart >/dev/null 2>&1 || true
+/etc/init.d/firewall restart >/dev/null 2>&1 || true
 uci -q set easymesh_agent.main.wired_preferred="$wired_preferred"
 uci commit easymesh_agent >/dev/null 2>&1 || true
 

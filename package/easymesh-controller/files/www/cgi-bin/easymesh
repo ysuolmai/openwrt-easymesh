@@ -62,7 +62,7 @@ render_config() {
 {
   "network": {
     "mode": "$(uci_get easymesh.main.network_mode gateway)",
-    "cidr": "$(uci_get easymesh.main.network_cidr 192.168.50.0/24)"
+    "cidr": "$(uci_get easymesh.main.network_cidr 192.168.10.0/24)"
   },
   "wifi": {
     "ssid": "$ssid_default",

@@ -110,8 +110,8 @@ return view.extend({
 				return uci.get('easymesh', section_id, 'network_mode') || 'gateway';
 			};
 			o = s.option(form.Value, 'network_cidr', _('Gateway LAN CIDR'));
-			o.default = '192.168.50.0/24';
-			o.cfgvalue = currentValue(null, 'network_cidr', '192.168.50.0/24');
+			o.default = '192.168.10.0/24';
+			o.cfgvalue = currentValue(null, 'network_cidr', '192.168.10.0/24');
 			o.depends('network_mode', 'gateway');
 		}
 

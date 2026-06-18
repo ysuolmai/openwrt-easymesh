@@ -96,7 +96,7 @@ EOF
 		awk '
 			!done && /^\t\*\)$/ {
 				print "\tsx,7981r128)"
-				print "\t\tucidef_set_interfaces_lan_wan \"lan1\" \"lan2\""
+				print "\t\tucidef_set_interfaces_lan_wan \"lan1 lan2\" \"eth1\""
 				print "\t\t;;"
 				done = 1
 			}
@@ -114,31 +114,71 @@ uci set wireless.radio0.disabled=0
 uci set wireless.radio1.disabled=0
 uci commit wireless
 
+. /lib/functions.sh
+
+BRIDGE_SECTION=""
+find_bridge_section() {
+	local section="$1"
+	local name type
+	config_get name "$section" name
+	config_get type "$section" type
+	if [ "$name" = "br-lan" ] && [ "$type" = "bridge" ]; then
+		BRIDGE_SECTION="$section"
+	fi
+}
+
+config_load network
+config_foreach find_bridge_section device
+LAN_BRIDGE_SECTION="${BRIDGE_SECTION:-br_lan}"
+if [ -z "$BRIDGE_SECTION" ]; then
+	uci set network.br_lan=device
+	uci set network.br_lan.name=br-lan
+	uci set network.br_lan.type=bridge
+fi
+uci del_list "network.$LAN_BRIDGE_SECTION.ports=lan1" >/dev/null 2>&1 || true
+uci add_list "network.$LAN_BRIDGE_SECTION.ports=lan1"
+uci del_list "network.$LAN_BRIDGE_SECTION.ports=lan2" >/dev/null 2>&1 || true
+uci add_list "network.$LAN_BRIDGE_SECTION.ports=lan2"
+uci set network.lan=interface
+uci set network.lan.device=br-lan
+
+uci set network.wan=interface
+uci set network.wan.device=eth1
+uci set network.wan.proto=dhcp
 uci set network.wan6=interface
-uci set network.wan6.device=lan2
+uci set network.wan6.device=@wan
 uci set network.wan6.proto=dhcpv6
-uci set network.wan2=interface
-uci set network.wan2.device=eth1
-uci set network.wan2.proto=dhcp
-uci set network.wan2_6=interface
-uci set network.wan2_6.device=eth1
-uci set network.wan2_6.proto=dhcpv6
+uci delete network.wan2 >/dev/null 2>&1 || true
+uci delete network.wan2_6 >/dev/null 2>&1 || true
 uci commit network
 
+lan_zone_idx=""
 wan_zone_idx=""
 i=0
 while uci get "firewall.@zone[$i]" >/dev/null 2>&1; do
-	if [ "$(uci get firewall.@zone[$i].name 2>/dev/null)" = "wan" ]; then
-		wan_zone_idx=$i
-		break
-	fi
+	case "$(uci get firewall.@zone[$i].name 2>/dev/null)" in
+		lan) lan_zone_idx=$i ;;
+		wan) wan_zone_idx=$i ;;
+	esac
 	i=$((i + 1))
 done
-if [ -n "$wan_zone_idx" ]; then
-	uci add_list firewall.@zone[$wan_zone_idx].network=wan2
-	uci add_list firewall.@zone[$wan_zone_idx].network=wan2_6
-	uci commit firewall
+if [ -n "$lan_zone_idx" ]; then
+	uci del_list firewall.@zone[$lan_zone_idx].network=wan >/dev/null 2>&1 || true
+	uci del_list firewall.@zone[$lan_zone_idx].network=wan6 >/dev/null 2>&1 || true
+	uci del_list firewall.@zone[$lan_zone_idx].network=wan2 >/dev/null 2>&1 || true
+	uci del_list firewall.@zone[$lan_zone_idx].network=wan2_6 >/dev/null 2>&1 || true
+	uci add_list firewall.@zone[$lan_zone_idx].network=lan
+	uci set firewall.@zone[$lan_zone_idx].input=ACCEPT
+	uci set firewall.@zone[$lan_zone_idx].output=ACCEPT
+	uci set firewall.@zone[$lan_zone_idx].forward=ACCEPT
 fi
+if [ -n "$wan_zone_idx" ]; then
+	uci del_list firewall.@zone[$wan_zone_idx].network=wan2 >/dev/null 2>&1 || true
+	uci del_list firewall.@zone[$wan_zone_idx].network=wan2_6 >/dev/null 2>&1 || true
+	uci add_list firewall.@zone[$wan_zone_idx].network=wan
+	uci add_list firewall.@zone[$wan_zone_idx].network=wan6
+fi
+uci commit firewall
 
 uci add system led
 uci set system.@led[-1].name='led_lan2'
@@ -147,6 +187,12 @@ uci set system.@led[-1].trigger='netdev'
 uci set system.@led[-1].dev='lan2'
 uci set system.@led[-1].mode='link tx rx'
 uci commit system
+
+/etc/init.d/network restart >/dev/null 2>&1 || true
+/etc/init.d/dnsmasq restart >/dev/null 2>&1 || true
+/etc/init.d/firewall restart >/dev/null 2>&1 || true
+/etc/init.d/uhttpd restart >/dev/null 2>&1 || true
+/etc/init.d/dropbear restart >/dev/null 2>&1 || true
 
 exit 0
 EOF

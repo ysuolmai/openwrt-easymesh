@@ -245,7 +245,7 @@ Provides:
 Current behavior:
 
 - Registers to configured AC URL.
-- Default AC URL is `http://192.168.50.1/cgi-bin/easymesh`.
+- Default AC URL is `http://192.168.10.1/cgi-bin/easymesh`.
 - Pulls AC config after registration.
 - Applies OpenWrt UCI settings for:
   - 2.4 GHz / 5 GHz client AP SSID
@@ -383,7 +383,7 @@ Implemented design:
 - Normal managed AP agent service is disabled on AC images so AC does not register to itself as a normal AP.
 - Local mesh member mode is explicit through LuCI or `/usr/sbin/easymesh-apply-local`; first boot does not broadcast placeholder Wi-Fi credentials automatically.
 - IPQ AC and AP builds no longer write `ath11k nss_offload=0 frame_mode=2` into the image rootfs. They compile NSS mesh offload support and rely on upstream ath11k module defaults for runtime offload state.
-- AC first boot now directly applies the desired local AC network mode from `/etc/config/easymesh`; gateway mode should bring up `192.168.50.1/24` with LAN DHCP instead of only storing desired config.
+- AC first boot now directly applies the desired local AC network mode from `/etc/config/easymesh`; gateway mode should bring up `192.168.10.1/24` with LAN DHCP instead of only storing desired config.
 
 Important safety rule:
 
@@ -457,7 +457,7 @@ AP agents resolve the AC through `ac_discovery` mode (`auto` by default):
 2. mDNS service `_easymesh._tcp` advertised by the AC (umdns)
 3. default-gateway probe (AC acting as router)
 4. last known good URL (cached at `/etc/easymesh-agent/ac_url`)
-5. hardcoded `192.168.50.1` as final fallback
+5. hardcoded `192.168.10.1` as final fallback
 
 Each candidate is validated by probing the AC root endpoint for
 `{"service":"easymesh"}` before use, and the resolved AC is reused until it

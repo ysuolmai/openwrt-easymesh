@@ -4,11 +4,15 @@ uci -q get easymesh.main.enabled >/dev/null 2>&1 || uci set easymesh.main.enable
 uci -q get easymesh.main.pairing_enabled >/dev/null 2>&1 || uci set easymesh.main.pairing_enabled='1'
 uci -q get easymesh.main.local_member >/dev/null 2>&1 || uci set easymesh.main.local_member='0'
 uci -q get easymesh.main.network_mode >/dev/null 2>&1 || uci set easymesh.main.network_mode='gateway'
+if [ "$(uci -q get easymesh.main.network_cidr 2>/dev/null)" = "192.168.50.0/24" ]; then
+	uci set easymesh.main.network_cidr='192.168.10.0/24'
+fi
+uci -q get easymesh.main.network_cidr >/dev/null 2>&1 || uci set easymesh.main.network_cidr='192.168.10.0/24'
 uci commit easymesh >/dev/null 2>&1 || true
 
 if [ -x /usr/sbin/easymesh-agent-apply ]; then
 	network_mode="$(uci -q get easymesh.main.network_mode 2>/dev/null || echo gateway)"
-	network_cidr="$(uci -q get easymesh.main.network_cidr 2>/dev/null || echo 192.168.50.0/24)"
+	network_cidr="$(uci -q get easymesh.main.network_cidr 2>/dev/null || echo 192.168.10.0/24)"
 	tmp="/tmp/easymesh-controller-network.json"
 	umask 077
 	printf '{"network":{"mode":"%s","cidr":"%s"}}\n' "$network_mode" "$network_cidr" > "$tmp"
@@ -18,6 +22,9 @@ fi
 /etc/init.d/easymesh-controller enable >/dev/null 2>&1 || true
 /etc/init.d/uhttpd enable >/dev/null 2>&1 || true
 /etc/init.d/uhttpd restart >/dev/null 2>&1 || true
+/etc/init.d/dropbear enable >/dev/null 2>&1 || true
+/etc/init.d/dropbear restart >/dev/null 2>&1 || true
+/etc/init.d/firewall restart >/dev/null 2>&1 || true
 
 # Advertise the AC over mDNS so AP agents can discover it without a hardcoded URL.
 /etc/init.d/umdns enable >/dev/null 2>&1 || true

@@ -35,7 +35,7 @@ fi
 
 local_member="$(uci_get easymesh.main.local_member 0)"
 network_mode="$(uci_get easymesh.main.network_mode gateway)"
-network_cidr="$(uci_get easymesh.main.network_cidr 192.168.50.0/24)"
+network_cidr="$(uci_get easymesh.main.network_cidr 192.168.10.0/24)"
 ssid_default="$(uci_get easymesh.main.ssid OpenWrt-Mesh)"
 
 tmp="/tmp/easymesh-local-config.json"
