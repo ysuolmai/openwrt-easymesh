@@ -114,7 +114,7 @@ require_file_exact() {
 
 require_ipq_ath11k_module_override() {
 	require_file_exact "$openwrt_dir/files/etc/modules.d/ath11k" \
-		"ath11k nss_offload=0 frame_mode=2" \
+		"ath11k nss_offload=0 frame_mode=0" \
 		"IPQ ath11k default NSS offload state"
 }
 

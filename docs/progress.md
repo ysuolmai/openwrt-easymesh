@@ -21,7 +21,7 @@ Current direction:
 - When `pairing_enabled=0`, unknown APs cannot register; known APs can keep updating `last_seen` and pulling config.
 - AC can run in `Bridge` mode or `Gateway` mode. AP always behaves as a bridge node.
 - `easymesh-controller` can run as a controller-only plugin on no-wifi hardware. `easymesh-local-member` adds AC local mesh support for Wi-Fi hardware.
-- IPQ AP images default to `ath11k nss_offload=0 frame_mode=2`. IPQ AC images default to off and switch at runtime: `local_member=0` writes `nss_offload=1`, while `local_member=1` writes `nss_offload=0`.
+- IPQ AP images default to `ath11k nss_offload=0 frame_mode=0`. IPQ AC images default to off and switch at runtime: `local_member=0` writes `nss_offload=1 frame_mode=0`, while `local_member=1` writes `nss_offload=0 frame_mode=0`.
 - AC defaults to gateway mode and applies the desired LAN network during first boot so the management address is reachable immediately.
 
 Latest implemented behavior:
@@ -375,14 +375,14 @@ User asked whether the AC itself can also be a mesh member if the AC hardware ha
 
 Implemented design:
 
-- `/etc/config/easymesh` has `option local_member '0'` by default.
+- `/etc/config/easymesh` has `option local_member '1'` by default.
 - LuCI shows `Enable AC local mesh member` only when local Wi-Fi is detected and `/usr/sbin/easymesh-apply-local` is installed.
 - `/usr/sbin/easymesh-apply-local` renders AC config into the same JSON structure used by managed APs.
 - It calls `/usr/sbin/easymesh-agent-apply --local-ac /tmp/easymesh-local-config.json` when local member mode is enabled.
 - `easymesh-agent-apply --local-ac` applies Wi-Fi APs, 802.11s backhaul, `batman-adv`, and DAWN while preserving AC LAN/WAN/DHCP/firewall behavior. It removes existing LAN AP Wi-Fi interfaces such as the default `ImmortalWrt` SSID so the AC only advertises the configured mesh client SSID.
 - Normal managed AP agent service is disabled on AC images so AC does not register to itself as a normal AP.
 - Local mesh member mode is explicit through LuCI or `/usr/sbin/easymesh-apply-local`; first boot does not broadcast placeholder Wi-Fi credentials automatically.
-- IPQ AC and AP builds write `ath11k nss_offload=0 frame_mode=2` into the image rootfs by default. AC local-member switching can change the module file to `nss_offload=1` only when the AC is not participating in Mesh.
+- IPQ AC and AP builds write `ath11k nss_offload=0 frame_mode=0` into the image rootfs by default. AC local-member switching can change the module file to `nss_offload=1 frame_mode=0` only when the AC is not participating in Mesh.
 - AC first boot now directly applies the desired local AC network mode from `/etc/config/easymesh`; gateway mode should bring up `192.168.10.1/24` with LAN DHCP instead of only storing desired config.
 
 Important safety rule:

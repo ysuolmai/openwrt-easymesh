@@ -40,7 +40,7 @@ clear_prepared_ath11k_module_override() {
 	local path="$OPENWRT_DIR/files/etc/modules.d/ath11k"
 
 	[ -f "$path" ] || return 0
-	grep -q '^ath11k nss_offload=[01] frame_mode=2$' "$path" || return 0
+	grep -Eq '^ath11k nss_offload=[01]( frame_mode=[0-9]+)?$' "$path" || return 0
 	rm -f "$path"
 }
 
@@ -49,7 +49,7 @@ install_ipq_ath11k_module_override() {
 	local modules_dir="$OPENWRT_DIR/files/etc/modules.d"
 
 	mkdir -p "$modules_dir"
-	printf 'ath11k nss_offload=%s frame_mode=2\n' "$value" > "$modules_dir/ath11k"
+	printf 'ath11k nss_offload=%s frame_mode=0\n' "$value" > "$modules_dir/ath11k"
 }
 
 
