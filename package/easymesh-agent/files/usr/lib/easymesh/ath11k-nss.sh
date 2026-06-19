@@ -35,6 +35,19 @@ ath11k_nss_set_module_config() {
 	fi
 }
 
+ath11k_nss_mesh_support_available() {
+	local file
+
+	[ -d /sys/module/qca_nss_wifi_meshmgr ] && return 0
+
+	for file in /etc/modules.d/*; do
+		[ -e "$file" ] || continue
+		grep -Eq "(^|[[:space:]])qca[-_]nss[-_]wifi[-_]meshmgr([[:space:]]|$)" "$file" && return 0
+	done
+
+	return 1
+}
+
 ath11k_nss_runtime_value() {
 	local path="/sys/module/ath11k/parameters/nss_offload"
 

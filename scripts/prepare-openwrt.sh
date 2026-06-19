@@ -164,11 +164,11 @@ EOF
 case "$CONFIG_NAME" in
 	IPQ60XX-MESH-AC)
 		install_shadcn_theme
-		install_ipq_ath11k_module_override 0
+		install_ipq_ath11k_module_override 1
 		;;
 	IPQ60XX-MESH-AP)
 		install_shadcn_theme
-		install_ipq_ath11k_module_override 0
+		install_ipq_ath11k_module_override 1
 		;;
 	MT7981-MESH-AC)
 		install_shadcn_theme

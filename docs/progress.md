@@ -21,7 +21,7 @@ Current direction:
 - When `pairing_enabled=0`, unknown APs cannot register; known APs can keep updating `last_seen` and pulling config.
 - AC can run in `Bridge` mode or `Gateway` mode. AP always behaves as a bridge node.
 - `easymesh-controller` can run as a controller-only plugin on no-wifi hardware. `easymesh-local-member` adds AC local mesh support for Wi-Fi hardware.
-- IPQ AP images default to `ath11k nss_offload=0 frame_mode=0`. IPQ AC images default to off and switch at runtime: `local_member=0` writes `nss_offload=1 frame_mode=0`, while `local_member=1` writes `nss_offload=0 frame_mode=0`.
+- On this experimental branch, IPQ AC/AP images default to `ath11k nss_offload=1 frame_mode=0` with NSS Wi-Fi meshmgr support enabled; the main branch keeps the conservative mesh-offload policy.
 - AC defaults to gateway mode and applies the desired LAN network during first boot so the management address is reachable immediately.
 
 Latest implemented behavior:

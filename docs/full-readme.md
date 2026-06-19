@@ -52,7 +52,7 @@ AC 的 `Network mode` 控制本机网络角色：`Bridge` 模式下 WAN、LAN、
 - 根据本机是否存在 Wi-Fi 驱动或 `/etc/config/wireless` 决定是否执行
 - `local_member=0` 时写入 `ath11k nss_offload=1 frame_mode=0`
 - `local_member=1` 时写入 `ath11k nss_offload=0 frame_mode=0`，并应用 AC 本机 Wi-Fi / 802.11s / batman 配置；如果 ath11k 模块已加载且参数无法热切换，会自动安排一次重启让模块参数生效
-- IPQ AP 固件默认写入 `ath11k nss_offload=0 frame_mode=0`；IPQ AC 固件默认关闭，之后由 `local_member` 状态切换
+- 实验分支 `experiment/ipq-nss-mesh-offload` 中，IPQ AC/AP 默认写入 `ath11k nss_offload=1 frame_mode=0`，并启用 NSS Wi-Fi meshmgr 支持；主线仍以稳定策略为准
 
 ### `luci-app-easymesh`
 

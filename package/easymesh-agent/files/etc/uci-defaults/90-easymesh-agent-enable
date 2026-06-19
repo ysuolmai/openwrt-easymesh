@@ -11,7 +11,11 @@ if [ -f /etc/config/easymesh ]; then
 else
 	if [ -f /usr/lib/easymesh/ath11k-nss.sh ]; then
 		. /usr/lib/easymesh/ath11k-nss.sh
-		ath11k_nss_set_offload 0 "managed AP default" || true
+		if ath11k_nss_mesh_support_available; then
+			ath11k_nss_set_offload 1 "AP NSS mesh offload experiment" || true
+		else
+			ath11k_nss_set_offload 0 "AP mesh compatibility fallback" || true
+		fi
 	fi
 	/usr/sbin/easymesh-agent-apply --network-only >/dev/null 2>&1 || true
 	/etc/init.d/easymesh-agent enable >/dev/null 2>&1 || true

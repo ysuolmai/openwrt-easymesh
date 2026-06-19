@@ -86,6 +86,16 @@ fi
 
 json_dump > "$tmp"
 
+set_local_mesh_nss_offload() {
+	command -v ath11k_nss_set_offload >/dev/null 2>&1 || return 1
+
+	if command -v ath11k_nss_mesh_support_available >/dev/null 2>&1 && ath11k_nss_mesh_support_available; then
+		ath11k_nss_set_offload 1 "AC local mesh NSS offload experiment" "/etc/easymesh/pending-local-apply"
+	else
+		ath11k_nss_set_offload 0 "AC local mesh compatibility fallback" "/etc/easymesh/pending-local-apply"
+	fi
+}
+
 disable_local_mesh_member() {
 	uci -q delete wireless.mesh_backhaul >/dev/null 2>&1 || true
 	uci -q delete wireless.mesh_ap_2g >/dev/null 2>&1 || true
@@ -101,8 +111,7 @@ disable_local_mesh_member() {
 
 if [ "$local_member" = "1" ] && [ "$local_wifi" = "1" ]; then
 	rm -f /etc/easymesh/pending-local-apply
-	if command -v ath11k_nss_set_offload >/dev/null 2>&1 &&
-		ath11k_nss_set_offload 0 "AC local mesh member enable" "/etc/easymesh/pending-local-apply"; then
+	if set_local_mesh_nss_offload; then
 		logger -t easymesh-controller "scheduled reboot before applying local mesh member config"
 		exit 0
 	fi
