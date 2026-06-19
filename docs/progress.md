@@ -229,7 +229,7 @@ Current behavior:
 - Depends on `easymesh-agent`, so it can reuse the same apply helper as APs.
 - Detects local Wi-Fi by checking `/etc/config/wireless`, `/sys/class/ieee80211`, or `iw phy`.
 - Skips local apply on no-wifi hardware even if installed.
-- Switches ath11k NSS offload from AC local-member state: controller-only mode enables it, local mesh member mode disables it.
+- Switches ath11k NSS offload from AC local-member state: controller-only mode enables it, local mesh member mode disables it. Controller-only mode does not rewrite the AC LAN bridge or run the backhaul watchdog.
 
 ### `easymesh-agent`
 
@@ -383,7 +383,7 @@ Implemented design:
 - Normal managed AP agent service is disabled on AC images so AC does not register to itself as a normal AP.
 - Local mesh member mode is explicit through LuCI or `/usr/sbin/easymesh-apply-local`; first boot does not broadcast placeholder Wi-Fi credentials automatically.
 - IPQ AC and AP builds write `ath11k nss_offload=0 frame_mode=0` into the image rootfs by default. AC local-member switching can change the module file to `nss_offload=1 frame_mode=0` only when the AC is not participating in Mesh.
-- AC first boot now directly applies the desired local AC network mode from `/etc/config/easymesh`; gateway mode should bring up `192.168.10.1/24` with LAN DHCP instead of only storing desired config.
+- AC first boot applies the desired local AC network mode from `/etc/config/easymesh`; disabling AC local mesh later only removes local mesh Wi-Fi/backhaul state and must not rewrite the AC LAN bridge.
 
 Important safety rule:
 
@@ -427,7 +427,7 @@ gh workflow run build-mtk.yml -R ysuolmai/openwrt-easymesh -f test_config_only=t
 Current state: both backhauls coexist. The wireless 802.11s link is a
 batman-adv hardif (`batmesh` -> `bat0`), `bat0` is bridged into `br-lan`, and
 the Ethernet backhaul port is also a `br-lan` member. Loops are handled by
-batman-adv `bridge_loop_avoidance` (`bat0.bridge_loop_avoidance=1`). `Prefer wired backhaul` now enables `easymesh-backhaul`, which monitors wired bridge-port carrier changes, flushes local bridge FDB/neighbor state, and sends LAN renew/ping traffic to accelerate upstream relearning. The wireless mesh remains attached to batman-adv at all times.
+batman-adv `bridge_loop_avoidance` (`bat0.bridge_loop_avoidance=1`). `Prefer wired backhaul` now enables `easymesh-backhaul` on APs and on ACs that are local mesh members; controller-only AC mode keeps that watchdog disabled so it does not flush the management bridge. The watchdog monitors wired bridge-port carrier changes, flushes local bridge FDB/neighbor state, and sends LAN renew/ping traffic to accelerate upstream relearning. The wireless mesh remains attached to batman-adv at all times.
 
 A previous attempt added a watchdog that detached the wireless mesh from
 batman-adv (`batctl if del`) whenever a wire was up and no mesh peer was

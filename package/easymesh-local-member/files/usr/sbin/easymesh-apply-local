@@ -86,6 +86,19 @@ fi
 
 json_dump > "$tmp"
 
+disable_local_mesh_member() {
+	uci -q delete wireless.mesh_backhaul >/dev/null 2>&1 || true
+	uci -q delete wireless.mesh_ap_2g >/dev/null 2>&1 || true
+	uci -q delete wireless.mesh_ap_5g >/dev/null 2>&1 || true
+	uci -q delete network.batmesh >/dev/null 2>&1 || true
+	uci -q delete network.bat0 >/dev/null 2>&1 || true
+	uci commit wireless >/dev/null 2>&1 || true
+	uci commit network >/dev/null 2>&1 || true
+	wifi reload >/dev/null 2>&1 || wifi up >/dev/null 2>&1 || true
+	/etc/init.d/easymesh-backhaul stop >/dev/null 2>&1 || true
+	/etc/init.d/easymesh-backhaul disable >/dev/null 2>&1 || true
+}
+
 if [ "$local_member" = "1" ] && [ "$local_wifi" = "1" ]; then
 	rm -f /etc/easymesh/pending-local-apply
 	if command -v ath11k_nss_set_offload >/dev/null 2>&1 &&
@@ -99,12 +112,14 @@ else
 	if [ "$local_member" = "1" ]; then
 		mkdir -p /etc/easymesh
 		touch /etc/easymesh/pending-local-apply
+		/usr/sbin/easymesh-agent-apply --local-ac --network-only "$tmp"
+		logger -t easymesh-controller "applied AC network config without local Wi-Fi"
 	else
 		rm -f /etc/easymesh/pending-local-apply
 		if command -v ath11k_nss_set_offload >/dev/null 2>&1; then
 			ath11k_nss_set_offload 1 "AC controller mode" || true
 		fi
+		disable_local_mesh_member
+		logger -t easymesh-controller "disabled AC local mesh member config"
 	fi
-	/usr/sbin/easymesh-agent-apply --local-ac --network-only "$tmp"
-	logger -t easymesh-controller "applied AC network config"
 fi

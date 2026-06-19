@@ -12,6 +12,7 @@ wired_preferred_enabled() {
 	local value
 
 	if [ -f /etc/config/easymesh ]; then
+		[ "$(uci_get easymesh.main.local_member 0)" = "1" ] || return 1
 		value="$(uci_get easymesh.main.wired_preferred 1)"
 	else
 		value="$(uci_get easymesh_agent.main.wired_preferred 1)"

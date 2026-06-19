@@ -355,7 +355,7 @@ AP 配对成功后，可以拔掉网线。
 
 AP 会保留无线 802.11s 回程配置，后续可通过无线回到 Mesh 网络。
 
-当前有线和无线回程会同时保留，二层环路由 batman-adv 的 bridge loop avoidance(BLA)处理。`Prefer wired backhaul` 开启时，AP/AC 会启动 `easymesh-backhaul` watchdog：检测有线桥端口 carrier 变化，主动 flush bridge FDB/邻居表并触发 LAN renew/ping，让路径从有线切到无线或从无线切回有线时尽快重新学习。它不会把无线 mesh 从 batman-adv 拆掉，所以不会造成下游无线 AP 无法重新入网的死锁。更彻底的方案仍然是后续把专用上联口建成 batman hardif 并用 hop penalty 偏向有线。
+当前有线和无线回程会同时保留，二层环路由 batman-adv 的 bridge loop avoidance(BLA)处理。`Prefer wired backhaul` 开启时，AP 和启用 AC 本机 Mesh 成员模式的 AC 会启动 `easymesh-backhaul` watchdog：检测有线桥端口 carrier 变化，主动 flush bridge FDB/邻居表并触发 LAN renew/ping，让路径从有线切到无线或从无线切回有线时尽快重新学习。它不会把无线 mesh 从 batman-adv 拆掉，所以不会造成下游无线 AP 无法重新入网的死锁。更彻底的方案仍然是后续把专用上联口建成 batman hardif 并用 hop penalty 偏向有线。
 
 ## 当前限制
 
@@ -363,7 +363,7 @@ v0.1 还是脚手架，重点是先把 AC/AP 架构跑通：
 
 - 配对控制目前是家庭网络用的简单模式：`Allow pairing` 开启时允许新 AP 注册，关闭后只保留已知 AP
 - AC 自动发现已用 mDNS 实现，AP 也可手动固定 `ac_url`
-- 有线和无线回程同时保留，环路靠 BLA；当前已用 `easymesh-backhaul` 加速桥学习收敛，完整 batman hardif + hop penalty 方案仍待真机验证
+- 有线和无线回程同时保留，环路靠 BLA；当前 AP / AC 本机 Mesh 成员已用 `easymesh-backhaul` 加速桥学习收敛，纯 AC controller 模式不启用该 watchdog，完整 batman hardif + hop penalty 方案仍待真机验证
 - LuCI 页面目前只做基础配置、AP 在线/最后上报时间、AC 本机 Mesh 应用
 - 还没有拓扑图、链路质量、在线状态详情
 - 需要真机验证 IPQ60XX / MT7981 上的 802.11s、DAWN 和 KVR 组合

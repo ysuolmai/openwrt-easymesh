@@ -395,8 +395,6 @@ apply_network_config() {
 	section="$LAN_BRIDGE_SECTION"
 
 	uci -q set network.lan=interface
-	uci -q set "network.$section.ageing_time=30"
-	uci -q set "network.$section.bridge_empty=1"
 	uci -q set network.lan.device=br-lan
 	add_lan_ports_to_bridge "$section"
 
@@ -457,8 +455,13 @@ if [ "$network_only" = "1" ]; then
 	/etc/init.d/network restart >/dev/null 2>&1 || true
 	wifi reload >/dev/null 2>&1 || true
 	logger -t easymesh-agent "applied network-only config (network_mode=$network_mode)"
-	/etc/init.d/easymesh-backhaul enable >/dev/null 2>&1 || true
-	/etc/init.d/easymesh-backhaul restart >/dev/null 2>&1 || true
+	if [ "$local_ac" = "1" ]; then
+		/etc/init.d/easymesh-backhaul stop >/dev/null 2>&1 || true
+		/etc/init.d/easymesh-backhaul disable >/dev/null 2>&1 || true
+	else
+		/etc/init.d/easymesh-backhaul enable >/dev/null 2>&1 || true
+		/etc/init.d/easymesh-backhaul restart >/dev/null 2>&1 || true
+	fi
 	exit 0
 fi
 
