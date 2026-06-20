@@ -51,7 +51,7 @@ json_add_string mode "$network_mode"
 json_add_string cidr "$network_cidr"
 json_close_object
 
-if [ "$local_member" = "1" ] && [ "$local_wifi" = "1" ]; then
+if [ "$local_wifi" = "1" ]; then
 	json_add_object wifi
 	json_add_string ssid "$ssid_default"
 	json_add_string ssid_2g "$(uci_get easymesh.main.ssid_2g "$ssid_default")"
@@ -65,7 +65,17 @@ if [ "$local_member" = "1" ] && [ "$local_wifi" = "1" ]; then
 	json_add_string mobility_domain "$(uci_get easymesh.main.mobility_domain 4f57)"
 	json_add_string ft_over_ds "$(uci_get easymesh.main.ft_over_ds 1)"
 	json_close_object
+fi
 
+if [ "$local_wifi" = "1" ]; then
+	json_add_object dawn
+	json_add_string enabled "$(uci_get easymesh.main.dawn_enabled 1)"
+	json_add_string kicking "$(uci_get easymesh.main.dawn_kicking 3)"
+	json_add_string set_hostapd_nr "$(uci_get easymesh.main.dawn_set_hostapd_nr 1)"
+	json_close_object
+fi
+
+if [ "$local_member" = "1" ] && [ "$local_wifi" = "1" ]; then
 	json_add_object backhaul
 	json_add_string mesh_id "$(uci_get easymesh.main.mesh_id openwrt-easymesh-backhaul)"
 	json_add_string mesh_key "$(uci_get easymesh.main.mesh_key 12345678)"
@@ -76,20 +86,16 @@ if [ "$local_member" = "1" ] && [ "$local_wifi" = "1" ]; then
 	json_add_string htmode_2g "$(uci_get easymesh.main.htmode_2g HE20)"
 	json_add_string wired_preferred "$(uci_get easymesh.main.wired_preferred 1)"
 	json_close_object
-
-	json_add_object dawn
-	json_add_string enabled "$(uci_get easymesh.main.dawn_enabled 1)"
-	json_add_string kicking "$(uci_get easymesh.main.dawn_kicking 3)"
-	json_add_string set_hostapd_nr "$(uci_get easymesh.main.dawn_set_hostapd_nr 1)"
-	json_close_object
 fi
 
 json_dump > "$tmp"
 
 disable_local_mesh_member() {
 	uci -q delete wireless.mesh_backhaul >/dev/null 2>&1 || true
-	uci -q delete wireless.mesh_ap_2g >/dev/null 2>&1 || true
-	uci -q delete wireless.mesh_ap_5g >/dev/null 2>&1 || true
+	if [ -x /usr/sbin/easymesh-agent-apply ] && [ "$local_wifi" = "1" ]; then
+		/usr/sbin/easymesh-agent-apply --local-ac --ap-only "$tmp"
+		return 0
+	fi
 	uci -q delete network.batmesh >/dev/null 2>&1 || true
 	uci -q delete network.bat0 >/dev/null 2>&1 || true
 	uci commit wireless >/dev/null 2>&1 || true

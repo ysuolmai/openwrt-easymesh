@@ -4,10 +4,12 @@ set -e
 
 local_ac=0
 network_only=0
+ap_only=0
 while [ $# -gt 0 ]; do
 	case "$1" in
 		--local-ac|--preserve-lan) local_ac=1 ;;
 		--network-only) network_only=1 ;;
+		--ap-only) ap_only=1 ;;
 		--) shift; break ;;
 		-*)
 			echo "unknown option: $1" >&2
@@ -521,26 +523,32 @@ mesh_radio="$radio_5g"
 set_radio_common "$radio_2g" "$country" "$channel_2g" "$htmode_2g"
 set_radio_common "$radio_5g" "$country" "$channel_5g" "$htmode_5g"
 
-uci -q set network.bat0=interface
-uci -q set network.bat0.proto=batadv
-uci -q set network.bat0.routing_algo=BATMAN_V
-uci -q set network.bat0.bridge_loop_avoidance=1
-uci -q set network.bat0.distributed_arp_table=1
-uci -q set network.bat0.gw_mode=off
+if [ "$ap_only" = "1" ]; then
+	uci -q delete network.batmesh >/dev/null 2>&1 || true
+	uci -q delete network.bat0 >/dev/null 2>&1 || true
+	apply_network_config "$network_mode" 0
+else
+	uci -q set network.bat0=interface
+	uci -q set network.bat0.proto=batadv
+	uci -q set network.bat0.routing_algo=BATMAN_V
+	uci -q set network.bat0.bridge_loop_avoidance=1
+	uci -q set network.bat0.distributed_arp_table=1
+	uci -q set network.bat0.gw_mode=off
 
-uci -q set network.batmesh=interface
-uci -q set network.batmesh.proto=batadv_hardif
-uci -q set network.batmesh.master=bat0
-uci -q delete network.batmesh.device >/dev/null 2>&1 || true
+	uci -q set network.batmesh=interface
+	uci -q set network.batmesh.proto=batadv_hardif
+	uci -q set network.batmesh.master=bat0
+	uci -q delete network.batmesh.device >/dev/null 2>&1 || true
 
-apply_network_config "$network_mode" 1
+	apply_network_config "$network_mode" 1
+fi
 
 delete_wifi_iface_by_name mesh_backhaul
 delete_wifi_iface_by_name mesh_ap_2g
 delete_wifi_iface_by_name mesh_ap_5g
 delete_lan_ap_ifaces
 
-if [ -n "$mesh_radio" ]; then
+if [ "$ap_only" != "1" ] && [ -n "$mesh_radio" ]; then
 	uci -q set wireless.mesh_backhaul=wifi-iface
 	uci -q set wireless.mesh_backhaul.name=mesh_backhaul
 	uci -q set wireless.mesh_backhaul.device="$mesh_radio"
@@ -605,12 +613,19 @@ uci commit easymesh_agent >/dev/null 2>&1 || true
 
 wifi reload >/dev/null 2>&1 || wifi up >/dev/null 2>&1 || true
 /etc/init.d/network reload >/dev/null 2>&1 || true
-attach_mesh_backhaul_to_batman
-/etc/init.d/easymesh-backhaul enable >/dev/null 2>&1 || true
-/etc/init.d/easymesh-backhaul restart >/dev/null 2>&1 || true
+if [ "$ap_only" = "1" ]; then
+	/etc/init.d/easymesh-backhaul stop >/dev/null 2>&1 || true
+	/etc/init.d/easymesh-backhaul disable >/dev/null 2>&1 || true
+else
+	attach_mesh_backhaul_to_batman
+	/etc/init.d/easymesh-backhaul enable >/dev/null 2>&1 || true
+	/etc/init.d/easymesh-backhaul restart >/dev/null 2>&1 || true
+fi
 [ "$dawn_enabled" = "1" ] && /etc/init.d/dawn restart >/dev/null 2>&1 || true
 
-if [ "$local_ac" = "1" ]; then
+if [ "$local_ac" = "1" ] && [ "$ap_only" = "1" ]; then
+	logger -t easymesh-agent "applied local AC AP-only config (network_mode=$network_mode)"
+elif [ "$local_ac" = "1" ]; then
 	logger -t easymesh-agent "applied local AC mesh member config (network_mode=$network_mode)"
 else
 	logger -t easymesh-agent "applied managed AP config"

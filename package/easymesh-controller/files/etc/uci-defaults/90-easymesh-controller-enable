@@ -2,7 +2,7 @@
 
 uci -q get easymesh.main.enabled >/dev/null 2>&1 || uci set easymesh.main.enabled='1'
 uci -q get easymesh.main.pairing_enabled >/dev/null 2>&1 || uci set easymesh.main.pairing_enabled='1'
-uci -q get easymesh.main.local_member >/dev/null 2>&1 || uci set easymesh.main.local_member='1'
+uci -q get easymesh.main.local_member >/dev/null 2>&1 || uci set easymesh.main.local_member='0'
 uci -q get easymesh.main.network_mode >/dev/null 2>&1 || uci set easymesh.main.network_mode='gateway'
 if [ "$(uci -q get easymesh.main.network_cidr 2>/dev/null)" = "192.168.50.0/24" ]; then
 	uci set easymesh.main.network_cidr='192.168.10.0/24'
