@@ -2,12 +2,34 @@
 /*
  * Ported from hanwckf/immortalwrt-mt798x openwrt-21.02 to kernel 6.18 DSA.
  * Original: mt7981-spim-nand-7981r128.dts
- * Source: ysuolmai/OpenWRT-CI Scripts/dts/mt7981b-sx-7981r128.dts
+ *
+ * Changes vs original:
+ *  - Include mt7981b.dtsi (replaces mt7981.dtsi from old fork)
+ *  - LEDs: updated to use dt-bindings/leds/common.h macros
+ *  - Switch: moved from inline mdio-bus inside &eth to &mdio_bus (DSA style)
+ *  - NMBM: replaced nmbm_spim_nand wrapper with inline mediatek,nmbm properties
+ *  - Added nvmem-layout in factory partition for WiFi EEPROM
+ *  - Added explicit 512MB memory, LED aliases, USB PHY, and MTK U-Boot layout
+ *    image assumptions following JimLee1996/immortalwrt-mt798x-rebase
+ *  - Fixed spi-tx-bus-width / spi-rx-bus-width property names
+ *  - Added spi-cal-* properties for NAND timing calibration
+ *  - Removed &hnat (handled by kmod-mtk-hnat, no DT node needed in 6.18)
+ *  - Removed &afe PCM audio (not needed for router function)
+ *
+ * TODO (requires hardware verification):
+ *  - Confirm mt7981b.dtsi is correct variant (vs mt7981a.dtsi)
+ *  - Verify MAC address offset in factory partition (currently 0x4)
+ *  - Verify gmac1 SFP phy-mode: "2500base-x" locks to 2.5G only;
+ *    change to "sgmii" if standard 1G SFP modules are also needed
  */
 
 /dts-v1/;
 
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/leds/common.h>
+#include <dt-bindings/pinctrl/mt65xx.h>
 #include "mt7981b.dtsi"
 
 / {
@@ -16,11 +38,20 @@
 
 	aliases {
 		label-mac-device = &gmac0;
+		led-boot = &led_power;
+		led-failsafe = &led_power;
+		led-running = &led_power;
+		led-upgrade = &led_power;
 		serial0 = &uart0;
 	};
 
 	chosen {
 		stdout-path = "serial0:115200n8";
+	};
+
+	memory@40000000 {
+		device_type = "memory";
+		reg = <0 0x40000000 0 0x20000000>;
 	};
 
 	gpio-keys {
@@ -36,33 +67,37 @@
 	gpio-leds {
 		compatible = "gpio-leds";
 
-		led-sfp {
+		led_sfp: led-sfp {
 			color = <LED_COLOR_ID_GREEN>;
 			function = LED_FUNCTION_WAN;
 			gpios = <&pio 4 GPIO_ACTIVE_LOW>;
+			default-state = "off";
 		};
 
-		led-wifi5g {
+		led_wifi5g: led-wifi5g {
 			color = <LED_COLOR_ID_GREEN>;
 			function = LED_FUNCTION_WLAN_5GHZ;
 			gpios = <&pio 5 GPIO_ACTIVE_LOW>;
+			default-state = "off";
 			linux,default-trigger = "phy1tpt";
 		};
 
-		led-wifi2g {
+		led_wifi2g: led-wifi2g {
 			color = <LED_COLOR_ID_GREEN>;
 			function = LED_FUNCTION_WLAN_2GHZ;
 			gpios = <&pio 6 GPIO_ACTIVE_LOW>;
+			default-state = "off";
 			linux,default-trigger = "phy0tpt";
 		};
 
-		led-lan {
+		led_lan: led-lan {
 			color = <LED_COLOR_ID_GREEN>;
 			function = LED_FUNCTION_LAN;
 			gpios = <&pio 8 GPIO_ACTIVE_LOW>;
+			default-state = "off";
 		};
 
-		led-power {
+		led_power: led-power {
 			color = <LED_COLOR_ID_GREEN>;
 			function = LED_FUNCTION_POWER;
 			gpios = <&pio 13 GPIO_ACTIVE_LOW>;
@@ -70,6 +105,7 @@
 		};
 	};
 
+	/* I2C bit-bang bus for SFP module EEPROM (A0/A2 EEPROM) */
 	i2c_sfp: i2c-gpio {
 		compatible = "i2c-gpio";
 		sda-gpios = <&pio 9 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
@@ -87,6 +123,24 @@
 		tx-disable-gpios = <&pio 12 GPIO_ACTIVE_HIGH>;
 		tx-fault-gpios = <&pio 34 GPIO_ACTIVE_HIGH>;
 		maximum-power-milliwatt = <3000>;
+	};
+
+	reg_3p3v: regulator-3p3v {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-3.3V";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-boot-on;
+		regulator-always-on;
+	};
+
+	usb_vbus: regulator-usb-vbus {
+		compatible = "regulator-fixed";
+		regulator-name = "usb_vbus";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		enable-active-high;
+		regulator-boot-on;
 	};
 };
 
@@ -121,16 +175,19 @@
 	gmac1: mac@1 {
 		compatible = "mediatek,eth-mac";
 		reg = <1>;
+		/* 2500base-x: only 2.5G SFP+ modules will work.
+		 * Change to "sgmii" for compatibility with standard 1G SFP. */
 		phy-mode = "2500base-x";
 		managed = "in-band-status";
 		sfp = <&sfp_wan>;
 
 		nvmem-cell-names = "mac-address";
-		nvmem-cells = <&macaddr_factory 1>;
+		nvmem-cells = <&macaddr_factory 2>;
 	};
 };
 
 &mdio_bus {
+	/* Airoha EN8801S 2.5G PHY on switch port 5 */
 	phy5: phy@5 {
 		compatible = "ethernet-phy-id67c9.de0a";
 		reg = <5>;
@@ -158,6 +215,7 @@
 				label = "lan1";
 			};
 
+			/* 2.5G LAN port via external Airoha EN8801S PHY */
 			port@5 {
 				reg = <5>;
 				label = "lan2";
@@ -213,6 +271,7 @@
 		spi-tx-bus-width = <4>;
 		spi-rx-bus-width = <4>;
 
+		/* SPI timing calibration ("SPINAND" pattern) */
 		spi-cal-enable;
 		spi-cal-mode = "read-data";
 		spi-cal-datalen = <7>;
@@ -220,6 +279,7 @@
 		spi-cal-addrlen = <5>;
 		spi-cal-addr = /bits/ 32 <0x0 0x0 0x0 0x0 0x0>;
 
+		/* NMBM (NAND Management Block Manager) for bad-block handling */
 		mediatek,nmbm;
 		mediatek,bmt-max-ratio = <1>;
 		mediatek,bmt-max-reserved-blocks = <64>;
@@ -240,7 +300,7 @@
 				reg = <0x100000 0x80000>;
 			};
 
-			partition@180000 {
+			factory: partition@180000 {
 				label = "factory";
 				reg = <0x180000 0x200000>;
 				read-only;
@@ -250,10 +310,15 @@
 					#address-cells = <1>;
 					#size-cells = <1>;
 
+					/* WiFi calibration EEPROM for mt7976/mt7981 (4KB) */
 					eeprom_factory: eeprom@0 {
 						reg = <0x0 0x1000>;
 					};
 
+					/* MAC address base for all interfaces.
+					 * TODO: verify offset 0x4 against actual factory
+					 * partition dump from the hardware. Common MTK SDK
+					 * locations are 0x4, 0x2A, or 0xE000. */
 					macaddr_factory: macaddr@4 {
 						compatible = "mac-base";
 						reg = <0x4 0x6>;
@@ -277,13 +342,19 @@
 };
 
 &wifi {
+	mediatek,mtd-eeprom = <&factory 0x0>;
 	nvmem-cell-names = "eeprom";
 	nvmem-cells = <&eeprom_factory>;
+	status = "okay";
+};
+
+&usb_phy {
 	status = "okay";
 };
 
 &xhci {
 	phys = <&u2port0 PHY_TYPE_USB2>,
 	       <&u3port0 PHY_TYPE_USB3>;
+	mediatek,u3p-dis-msk = <0x0>;
 	status = "okay";
 };

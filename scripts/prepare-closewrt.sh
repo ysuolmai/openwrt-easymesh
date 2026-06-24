@@ -45,7 +45,9 @@ inject_sx_7981r128() {
 	local filogic_mk="$OPENWRT_DIR/target/linux/mediatek/image/filogic.mk"
 	local board_network="$OPENWRT_DIR/target/linux/mediatek/filogic/base-files/etc/board.d/02_network"
 	local board_leds="$OPENWRT_DIR/target/linux/mediatek/filogic/base-files/etc/board.d/01_leds"
+	local platform_sh="$OPENWRT_DIR/target/linux/mediatek/filogic/base-files/lib/upgrade/platform.sh"
 	local uci_defaults="$OPENWRT_DIR/package/base-files/files/etc/uci-defaults/98_sx_7981r128_init.sh"
+	local led_defaults="$OPENWRT_DIR/package/base-files/files/etc/uci-defaults/99_sx_7981r128_leds.sh"
 
 	if [ -f "$broken_uboot_patch" ]; then
 		rm -f "$broken_uboot_patch"
@@ -79,14 +81,14 @@ define Device/sx_7981r128
   DEVICE_DTS_DIR := ../dts
   DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3 \
                      kmod-sfp kmod-i2c-gpio
-  SUPPORTED_DEVICES := sx,7981r128 mediatek,mt7981-spim-snand-7981r128
+  SUPPORTED_DEVICES := sx,7981r128 mediatek,mt7981-spim-snand-7981r128 mediatek,zhao-7981r128-d
   KERNEL_IN_UBI := 1
-  UBOOTENV_IN_UBI := 1
   BLOCKSIZE := 128k
   PAGESIZE := 2048
   IMAGE_SIZE := 114688k
   UBINIZE_OPTS := -E 5
-  IMAGES := sysupgrade.bin
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += sx_7981r128
@@ -95,11 +97,22 @@ EOF
 
 	if [ -f "$board_network" ] && ! grep -q 'sx,7981r128' "$board_network"; then
 		awk '
-			!done && /^\t\*\)$/ {
+			/^mediatek_setup_interfaces\(\)$/ { in_interfaces = 1; in_macs = 0 }
+			/^mediatek_setup_macs\(\)$/ { in_interfaces = 0; in_macs = 1 }
+			in_interfaces && !done_interfaces && /^\t\*\)$/ {
 				print "\tsx,7981r128)"
 				print "\t\tucidef_set_interfaces_lan_wan \"lan1\" \"lan2\""
 				print "\t\t;;"
-				done = 1
+				done_interfaces = 1
+			}
+			in_macs && !done_macs && /^\tesac$/ {
+				print "\tsx,7981r128)"
+				print "\t\tlan_mac=$(mtd_get_mac_binary factory 0x04)"
+				print "\t\t[ -n \"$lan_mac\" ] || lan_mac=$(mtd_get_mac_binary Factory 0x04)"
+				print "\t\t[ -n \"$lan_mac\" ] && wan_mac=$(macaddr_add \"$lan_mac\" 1)"
+				print "\t\t[ -n \"$lan_mac\" ] && label_mac=$lan_mac"
+				print "\t\t;;"
+				done_macs = 1
 			}
 			{ print }
 		' "$board_network" > "$board_network.new"
@@ -108,7 +121,7 @@ EOF
 
 	if [ -f "$board_leds" ] && ! grep -q 'sx,7981r128' "$board_leds"; then
 		awk '
-			!done && /^\t\*\)$/ {
+			!done && (/^\t\*\)$/ || /^esac$/) {
 				print "\tsx,7981r128)"
 				print "\t\tucidef_set_led_netdev \"lan\" \"LAN\" \"green:lan\" \"lan2\""
 				print "\t\tucidef_set_led_netdev \"sfp\" \"SFP\" \"green:wan\" \"eth1\" \"link\""
@@ -127,19 +140,31 @@ EOF
 #!/bin/sh
 [ "$(cat /tmp/sysinfo/board_name 2>/dev/null)" = "sx,7981r128" ] || exit 0
 
+. /lib/functions.sh
+. /lib/functions/system.sh
+
 uci set wireless.radio0.disabled=0
 uci set wireless.radio1.disabled=0
 uci commit wireless
 
+uci set network.wan.metric=10
 uci set network.wan6=interface
 uci set network.wan6.device=lan2
 uci set network.wan6.proto=dhcpv6
+uci set network.wan6.metric=10
 uci set network.wan2=interface
 uci set network.wan2.device=eth1
 uci set network.wan2.proto=dhcp
+uci set network.wan2.metric=20
 uci set network.wan2_6=interface
 uci set network.wan2_6.device=eth1
 uci set network.wan2_6.proto=dhcpv6
+uci set network.wan2_6.metric=20
+base_mac=$(mtd_get_mac_binary factory 0x04 2>/dev/null)
+[ -n "$base_mac" ] || base_mac=$(mtd_get_mac_binary Factory 0x04 2>/dev/null)
+if [ -n "$base_mac" ]; then
+	uci set network.wan2.macaddr="$(macaddr_add "$base_mac" 2)"
+fi
 uci commit network
 
 wan_zone_idx=""
@@ -160,6 +185,95 @@ fi
 exit 0
 EOF
 	chmod +x "$uci_defaults"
+
+	if [ -f "$platform_sh" ] && ! grep -q 'sx,7981r128' "$platform_sh"; then
+		awk '
+			/^platform_do_upgrade\(\)/ { in_upgrade = 1; in_check = 0 }
+			/^platform_check_image\(\)/ { in_upgrade = 0; in_check = 1 }
+			in_upgrade && !done_upgrade && /^\t\*\)$/ {
+				print "\tsx,7981r128)"
+				print "\t\tCI_UBIPART=\"ubi\""
+				print "\t\tnand_do_upgrade \"$1\""
+				print "\t\t;;"
+				print
+				done_upgrade = 1
+				next
+			}
+			in_check && !done_check && /\tnradio,c8-668gl\)/ {
+				sub(/\)$/, "|\\\\")
+				print
+				print "\tsx,7981r128)"
+				done_check = 1
+				next
+			}
+			{ print }
+		' "$platform_sh" > "$platform_sh.new"
+		mv "$platform_sh.new" "$platform_sh"
+	fi
+
+	mkdir -p "$(dirname "$led_defaults")"
+	cat > "$led_defaults" <<'EOF'
+#!/bin/sh
+[ "$(cat /tmp/sysinfo/board_name 2>/dev/null)" = "sx,7981r128" ] || exit 0
+
+pick_led() {
+	for led in "$@"; do
+		[ -e "/sys/class/leds/$led" ] && {
+			printf '%s' "$led"
+			return
+		}
+	done
+	printf '%s' "$1"
+}
+
+led_lan_sysfs="$(pick_led green:lan LAN)"
+led_sfp_sysfs="$(pick_led green:wan SFP)"
+led_wifi5g_sysfs="$(pick_led green:wlan-5ghz WIFI5G)"
+led_wifi2g_sysfs="$(pick_led green:wlan-2ghz WIFI2G)"
+
+while true; do
+	old_led="$(uci show system 2>/dev/null | sed -n "s/^\(system\.[^=]*\)\.name='led_lan2'$/\1/p" | head -n1)"
+	[ -n "$old_led" ] || break
+	uci -q delete "$old_led"
+done
+uci -q delete system.led_lan2
+uci -q delete system.led_lan
+uci -q delete system.led_sfp
+uci -q delete system.led_wifi5g
+uci -q delete system.led_wifi2g
+
+uci set system.led_lan=led
+uci set system.led_lan.name='LAN'
+uci set system.led_lan.sysfs="$led_lan_sysfs"
+uci set system.led_lan.trigger='netdev'
+uci set system.led_lan.dev='lan2'
+uci set system.led_lan.mode='link tx rx'
+
+uci set system.led_sfp=led
+uci set system.led_sfp.name='SFP'
+uci set system.led_sfp.sysfs="$led_sfp_sysfs"
+uci set system.led_sfp.trigger='netdev'
+uci set system.led_sfp.dev='eth1'
+uci set system.led_sfp.mode='link'
+
+uci set system.led_wifi5g=led
+uci set system.led_wifi5g.name='WIFI5G'
+uci set system.led_wifi5g.sysfs="$led_wifi5g_sysfs"
+uci set system.led_wifi5g.trigger='netdev'
+uci set system.led_wifi5g.dev='rax0'
+uci set system.led_wifi5g.mode='tx rx'
+
+uci set system.led_wifi2g=led
+uci set system.led_wifi2g.name='WIFI2G'
+uci set system.led_wifi2g.sysfs="$led_wifi2g_sysfs"
+uci set system.led_wifi2g.trigger='netdev'
+uci set system.led_wifi2g.dev='ra0'
+uci set system.led_wifi2g.mode='tx rx'
+
+uci commit system
+exit 0
+EOF
+	chmod +x "$led_defaults"
 }
 
 case "$CONFIG_NAME" in
