@@ -46,6 +46,8 @@ inject_sx_7981r128() {
 	local board_network="$OPENWRT_DIR/target/linux/mediatek/filogic/base-files/etc/board.d/02_network"
 	local board_leds="$OPENWRT_DIR/target/linux/mediatek/filogic/base-files/etc/board.d/01_leds"
 	local platform_sh="$OPENWRT_DIR/target/linux/mediatek/filogic/base-files/lib/upgrade/platform.sh"
+	local uboot_envtools="$OPENWRT_DIR/package/boot/uboot-tools/uboot-envtools/files/mediatek_filogic"
+	local smp_sh="$OPENWRT_DIR/package/mtk/applications/mtk-smp/files/smp.sh"
 	local uci_defaults="$OPENWRT_DIR/package/base-files/files/etc/uci-defaults/98_sx_7981r128_init.sh"
 	local led_defaults="$OPENWRT_DIR/package/base-files/files/etc/uci-defaults/99_sx_7981r128_leds.sh"
 
@@ -80,8 +82,9 @@ define Device/sx_7981r128
   DEVICE_DTS := mt7981b-sx-7981r128
   DEVICE_DTS_DIR := ../dts
   DEVICE_PACKAGES := kmod-mt7915e kmod-mt7981-firmware mt7981-wo-firmware kmod-usb3 \
-                     kmod-sfp kmod-i2c-gpio
-  SUPPORTED_DEVICES := sx,7981r128 mediatek,mt7981-spim-snand-7981r128 mediatek,zhao-7981r128-d
+                     kmod-sfp kmod-i2c-gpio uboot-envtools
+  SUPPORTED_DEVICES := sx,7981r128 mediatek,mt7981-spim-snand-7981r128 \
+                       mediatek,zhao-7981r128-d zhao,7981r128
   KERNEL_IN_UBI := 1
   BLOCKSIZE := 128k
   PAGESIZE := 2048
@@ -200,7 +203,7 @@ EOF
 				next
 			}
 			in_check && !done_check && /\tnradio,c8-668gl\)/ {
-				sub(/\)$/, "|\\\\")
+				sub(/\)$/, "|\\")
 				print
 				print "\tsx,7981r128)"
 				done_check = 1
@@ -209,6 +212,36 @@ EOF
 			{ print }
 		' "$platform_sh" > "$platform_sh.new"
 		mv "$platform_sh.new" "$platform_sh"
+	fi
+
+	if [ -f "$uboot_envtools" ] && ! grep -q 'sx,7981r128' "$uboot_envtools"; then
+		awk '
+			!done && /^[[:space:]]*zhao,7981r128\)$/ {
+				print "\tsx,7981r128|\\"
+				done = 1
+			}
+			!done && /^[[:space:]]*zbtlink,zbt-z8103ax\)$/ {
+				sub(/\)$/, "|\\")
+				print
+				print "\tsx,7981r128)"
+				done = 1
+				next
+			}
+			{ print }
+		' "$uboot_envtools" > "$uboot_envtools.new"
+		mv "$uboot_envtools.new" "$uboot_envtools"
+	fi
+
+	if [ -f "$smp_sh" ] && ! grep -q 'sx,7981r128' "$smp_sh"; then
+		awk '
+			!done && /^\t\*7981\*\)$/ {
+				print "\tzhao,7981r128 |\\"
+				print "\tsx,7981r128 |\\"
+				done = 1
+			}
+			{ print }
+		' "$smp_sh" > "$smp_sh.new"
+		mv "$smp_sh.new" "$smp_sh"
 	fi
 
 	mkdir -p "$(dirname "$led_defaults")"
